@@ -27,6 +27,7 @@ export default function TransactionsPage() {
     category_id: "",
     description: "",
     amount: 0,
+    memo: "",
     date: defaultDate,
   });
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
@@ -42,7 +43,7 @@ export default function TransactionsPage() {
   async function fetchData() {
     if (!supabaseRef.current) return;
     const [txResult, accResult, catResult] = await Promise.all([
-      supabaseRef.current.from("transactions").select("id, account_id, category_id, description, amount, date, reconciled, transfer_id, created_at, accounts(name), categories(name)").order("date", { ascending: false }),
+      supabaseRef.current.from("transactions").select("id, account_id, category_id, description, amount, date, reconciled, transfer_id, memo, created_at, accounts(name), categories(name)").order("date", { ascending: false }),
       supabaseRef.current.from("accounts").select("*").order("name"),
       supabaseRef.current.from("categories").select("*").order("name"),
     ]);
@@ -84,6 +85,7 @@ export default function TransactionsPage() {
           description: `${formData.description} → ${accounts.find((a) => a.id === newToAccountId)?.name || ""}`,
           amount: newFromAmount,
           date: formData.date,
+          memo: formData.memo,
         }).eq("id", fromTx.id);
 
         await supabaseRef.current.from("transactions").update({
@@ -91,6 +93,7 @@ export default function TransactionsPage() {
           description: `${formData.description} ← ${accounts.find((a) => a.id === newFromAccountId)?.name || ""}`,
           amount: newToAmount,
           date: formData.date,
+          memo: formData.memo,
         }).eq("id", toTx.id);
 
         // Update account balances:
@@ -168,7 +171,7 @@ export default function TransactionsPage() {
           return;
         }
       }
-      setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, date: defaultDate });
+      setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, memo: "", date: defaultDate });
       setShowForm(false);
       setTransactionType("expense");
       fetchData();
@@ -196,6 +199,7 @@ export default function TransactionsPage() {
         description: formData.description,
         amount,
         date: formData.date,
+        memo: formData.memo,
       }).eq("id", editingId);
 
       const oldAccount = accounts.find((a) => a.id === oldTx?.account_id);
@@ -215,6 +219,7 @@ export default function TransactionsPage() {
         description: formData.description,
         amount,
         date: formData.date,
+        memo: formData.memo,
       });
 
       const account = accounts.find((a) => a.id === formData.account_id);
@@ -223,7 +228,7 @@ export default function TransactionsPage() {
       }
     }
 
-    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, date: defaultDate });
+    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, memo: "", date: defaultDate });
     setShowForm(false);
     fetchData();
   }
@@ -245,6 +250,7 @@ export default function TransactionsPage() {
         category_id: "",
         description: fromTx.description.replace(/\s*[\u2192\u2190]\s.*/, ""), // strip arrow suffix
         amount: Math.abs(Number(fromTx.amount)),
+        memo: (fromTx as any).memo || "",
         date: fromTx.date,
       });
     } else {
@@ -256,6 +262,7 @@ export default function TransactionsPage() {
         category_id: tx.category_id || "",
         description: tx.description,
         amount: Math.abs(Number(tx.amount)),
+        memo: tx.memo || "",
         date: tx.date,
       });
     }
@@ -265,7 +272,7 @@ export default function TransactionsPage() {
   function cancelEdit() {
     setEditingId(null);
     setEditingTransferPair(null);
-    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, date: defaultDate });
+    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, memo: "", date: defaultDate });
     setShowForm(false);
     setTransactionType("expense");
   }
@@ -476,6 +483,17 @@ export default function TransactionsPage() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Memo / Notes (optional)</label>
+                <input
+                  type="text"
+                  value={formData.memo}
+                  onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Extra notes..."
+                />
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
                 <input
                   type="number"
@@ -524,6 +542,7 @@ export default function TransactionsPage() {
                     <th className="pb-3 font-medium w-10"></th>
                     <th className="pb-3 font-medium">Date</th>
                     <th className="pb-3 font-medium">Description</th>
+                    <th className="pb-3 font-medium">Memo</th>
                     <th className="pb-3 font-medium">Account</th>
                     <th className="pb-3 font-medium">Category</th>
                     <th className="pb-3 font-medium text-right">Amount</th>
@@ -550,6 +569,7 @@ export default function TransactionsPage() {
                           <span className="ml-2 text-xs text-blue-500 bg-blue-100 px-1.5 py-0.5 rounded">↔️</span>
                         )}
                       </td>
+                      <td className="py-3 text-sm text-gray-500">{tx.memo || "-"}</td>
                       <td className="py-3 text-sm text-gray-600">{(tx as any).accounts?.name || "-"}</td>
                       <td className="py-3 text-sm text-gray-600">{(tx as any).categories?.name || "-"}</td>
                       <td className={`py-3 font-semibold text-right ${Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>

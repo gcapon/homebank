@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   amount NUMERIC(12, 2) NOT NULL,
   date DATE NOT NULL DEFAULT CURRENT_DATE,
   reconciled BOOLEAN NOT NULL DEFAULT false,
+  memo TEXT DEFAULT '',
   transfer_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

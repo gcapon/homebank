@@ -10,7 +10,7 @@ export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [preview, setPreview] = useState<Record<string, string>[]>([]);
-  const [mapping, setMapping] = useState({ accountId: '', dateCol: '', descCol: '', amountCol: '', typeCol: '' });
+  const [mapping, setMapping] = useState({ accountId: '', dateCol: '', descCol: '', amountCol: '', typeCol: '', memoCol: '' });
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{ imported?: number; error?: string } | null>(null);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
@@ -44,12 +44,14 @@ export default function ImportPage() {
         const descMatch = cols.find((c) => /description|memo|payee/i.test(c));
         const amountMatch = cols.find((c) => /amount|value|sum/i.test(c));
         const typeMatch = cols.find((c) => /type|transfer|income|expense/i.test(c));
+        const memoMatch = cols.find((c) => /note|memo|comment|reference/i.test(c));
         setMapping({
           accountId: mapping.accountId,
           dateCol: dateMatch || cols[0] || '',
           descCol: descMatch || cols[1] || '',
           amountCol: amountMatch || cols[2] || '',
           typeCol: typeMatch || '',
+          memoCol: memoMatch || '',
         });
       },
     });
@@ -67,6 +69,7 @@ export default function ImportPage() {
     formData.append('descCol', mapping.descCol);
     formData.append('amountCol', mapping.amountCol);
     formData.append('typeCol', mapping.typeCol);
+    formData.append('memoCol', mapping.memoCol);
 
     try {
       const res = await fetch('/api/import', { method: 'POST', body: formData });
@@ -151,6 +154,17 @@ export default function ImportPage() {
               <select
                 value={mapping.typeCol}
                 onChange={(e) => setMapping({ ...mapping, typeCol: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+              >
+                <option value="">None</option>
+                {headers.map((h) => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Memo/Notes Column (optional)</label>
+              <select
+                value={mapping.memoCol}
+                onChange={(e) => setMapping({ ...mapping, memoCol: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg"
               >
                 <option value="">None</option>

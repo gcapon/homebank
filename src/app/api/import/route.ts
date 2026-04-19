@@ -23,6 +23,7 @@ export async function POST(request: Request) {
   const descCol = formData.get('descCol') as string;
   const amountCol = formData.get('amountCol') as string;
   const typeCol = formData.get('typeCol') as string;
+  const memoCol = formData.get('memoCol') as string;
 
   if (!file || !accountId) {
     return NextResponse.json({ error: 'Missing file or account' }, { status: 400 });
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
     const dateStr = row[dateCol] || row['Date'] || row['date'] || '';
     const description = String(row[descCol] || row['Description'] || row['description'] || '').trim();
     const txType = typeCol ? String(row[typeCol] || '').toLowerCase().trim() : 'income';
+    const memo = memoCol ? String(row[memoCol] || '').trim() : '';
 
     let date = dateStr;
     const parsed = new Date(dateStr);
@@ -69,6 +71,7 @@ export async function POST(request: Request) {
       description,
       amount: finalAmount,
       date,
+      memo,
     });
 
     if (!error) importedCount++;

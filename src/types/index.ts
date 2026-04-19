@@ -20,6 +20,7 @@ export interface Transaction {
   date: string;
   reconciled: boolean;
   transfer_id: string | null;
+  memo?: string;
   created_at: string;
   updated_at: string;
 }
