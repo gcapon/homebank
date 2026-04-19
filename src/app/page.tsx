@@ -1,35 +1,29 @@
-import { createClient } from "@/lib/supabase/server";
+"use client";
 
-export default async function HomePage() {
-  const supabase = await createClient();
+import { useState, useEffect } from "react";
+import { createBrowserClient } from "@supabase/ssr";
 
-  // Fetch accounts
-  const { data: accounts } = await supabase
-    .from("accounts")
-    .select("*")
-    .order("created_at", { ascending: false });
+export default function HomePage() {
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
 
-  // Fetch recent transactions
-  const { data: transactions } = await supabase
-    .from("transactions")
-    .select("*, accounts(name), categories(name)")
-    .order("date", { ascending: false })
-    .limit(5);
+  useEffect(() => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    Promise.all([
+      supabase.from("accounts").select("*").order("created_at", { ascending: false }),
+      supabase.from("transactions").select("*, accounts(name), categories(name)").order("date", { ascending: false }).limit(5),
+    ]).then(([accRes, txRes]) => {
+      if (accRes.data) setAccounts(accRes.data);
+      if (txRes.data) setTransactions(txRes.data);
+    });
+  }, []);
 
-  // Fetch categories
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("*")
-    .order("name");
-
-  // Calculate totals
-  const totalBalance = accounts?.reduce((sum, acc) => sum + Number(acc.balance), 0) || 0;
-  const totalIncome = transactions
-    ?.filter(t => t.amount > 0)
-    .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-  const totalExpenses = transactions
-    ?.filter(t => t.amount < 0)
-    .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0) || 0;
+  const totalBalance = accounts.reduce((sum, acc) => sum + Number(acc.balance), 0) || 0;
+  const totalIncome = transactions.filter((t) => t.amount > 0).reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+  const totalExpenses = transactions.filter((t) => t.amount < 0).reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0) || 0;
 
   return (
     <div className="space-y-6">
@@ -51,7 +45,7 @@ export default async function HomePage() {
           <p className={`text-2xl font-bold ${totalBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
             ${totalBalance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-xs text-gray-400 mt-1">{accounts?.length || 0} accounts</p>
+          <p className="text-xs text-gray-400 mt-1">{accounts.length} accounts</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
@@ -73,31 +67,19 @@ export default async function HomePage() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <a
-          href="/accounts"
-          className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2"
-        >
+        <a href="/accounts" className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2">
           <span className="text-2xl">🏦</span>
           <span className="text-sm font-medium text-gray-700">Add Account</span>
         </a>
-        <a
-          href="/categories"
-          className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2"
-        >
+        <a href="/categories" className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2">
           <span className="text-2xl">🏷️</span>
           <span className="text-sm font-medium text-gray-700">Add Category</span>
         </a>
-        <a
-          href="/budgets"
-          className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2"
-        >
+        <a href="/budgets" className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2">
           <span className="text-2xl">📊</span>
           <span className="text-sm font-medium text-gray-700">Set Budget</span>
         </a>
-        <a
-          href="/reports"
-          className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2"
-        >
+        <a href="/reports" className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2">
           <span className="text-2xl">📈</span>
           <span className="text-sm font-medium text-gray-700">View Reports</span>
         </a>
@@ -124,12 +106,10 @@ export default async function HomePage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <h3 className="font-semibold text-gray-800">Recent Transactions</h3>
-          <a href="/transactions" className="text-sm text-blue-600 hover:text-blue-700">
-            View All →
-          </a>
+          <a href="/transactions" className="text-sm text-blue-600 hover:text-blue-700">View All →</a>
         </div>
         <div className="p-6">
-          {transactions && transactions.length > 0 ? (
+          {transactions.length > 0 ? (
             <div className="space-y-3">
               {transactions.map((tx) => (
                 <div key={tx.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
@@ -149,9 +129,7 @@ export default async function HomePage() {
             <div className="text-center py-8 text-gray-400">
               <p className="text-4xl mb-2">💸</p>
               <p>No transactions yet. Add your first one!</p>
-              <a href="/transactions" className="text-blue-600 hover:text-blue-700 mt-2 inline-block">
-                + Add Transaction
-              </a>
+              <a href="/transactions" className="text-blue-600 hover:text-blue-700 mt-2 inline-block">+ Add Transaction</a>
             </div>
           )}
         </div>
@@ -161,17 +139,17 @@ export default async function HomePage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <h3 className="font-semibold text-gray-800">Accounts</h3>
-          <a href="/accounts" className="text-sm text-blue-600 hover:text-blue-700">
-            Manage →
-          </a>
+          <a href="/accounts" className="text-sm text-blue-600 hover:text-blue-700">Manage →</a>
         </div>
         <div className="p-6">
-          {accounts && accounts.length > 0 ? (
+          {accounts.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {accounts.map((acc) => (
                 <div key={acc.id} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-lg">{acc.type === 'checking' ? '🏦' : acc.type === 'savings' ? '🐷' : acc.type === 'credit' ? '💳' : '💵'}</span>
+                    <span className="text-lg">
+                      {acc.type === "checking" ? "🏦" : acc.type === "savings" ? "🐷" : acc.type === "credit" ? "💳" : "💵"}
+                    </span>
                     <span className="text-xs text-gray-500 uppercase">{acc.type}</span>
                   </div>
                   <p className="font-semibold text-gray-800">{acc.name}</p>
@@ -185,9 +163,7 @@ export default async function HomePage() {
             <div className="text-center py-8 text-gray-400">
               <p className="text-4xl mb-2">🏦</p>
               <p>No accounts yet.</p>
-              <a href="/accounts/new" className="text-blue-600 hover:text-blue-700 mt-2 inline-block">
-                + Add Account
-              </a>
+              <a href="/accounts" className="text-blue-600 hover:text-blue-700 mt-2 inline-block">+ Add Account</a>
             </div>
           )}
         </div>
