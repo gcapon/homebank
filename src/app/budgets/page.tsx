@@ -49,19 +49,20 @@ export default function BudgetsPage() {
   }
 
   async function copyToMonths(categoryId: string, fromMonth: string, amount: number, targetMonths: string[]) {
-    if (!supabaseRef.current) return;
+    if (!supabaseRef.current || saving) return;
     setSaving(true);
-    for (const m of targetMonths) {
-      const monthStr = `${selectedYear}-${String(m + 1).padStart(2, "0")}`;
+    const upsertPromises = targetMonths.map(async (monthStr) => {
       const existing = budgets.find((b) => b.category_id === categoryId && b.month === monthStr);
       if (existing) {
         await supabaseRef.current.from("budgets").update({ amount }).eq("id", existing.id);
-        setBudgets((prev) => prev.map((b) => b.id === existing.id ? { ...b, amount } : b));
       } else {
-        const { data } = await supabaseRef.current.from("budgets").insert({ category_id: categoryId, amount, month: monthStr }).select().single();
-        if (data) setBudgets((prev) => [...prev, data]);
+        await supabaseRef.current.from("budgets").insert({ category_id: categoryId, amount, month: monthStr });
       }
-    }
+    });
+    await Promise.all(upsertPromises);
+    // Refresh budgets
+    const { data } = await supabaseRef.current.from("budgets").select("*");
+    if (data) setBudgets(data);
     setSaving(false);
   }
 
@@ -158,14 +159,12 @@ export default function BudgetsPage() {
                       {displayMonths.length > 1 && (
                         <button
                           onClick={() => {
-                            const amount = getBudget(expenseCategories[0]?.id, getMonthKey(m));
-                            const firstWithValue = expenseCategories.find((c) => getBudget(c.id, getMonthKey(m)) > 0);
-                            const amt = firstWithValue ? getBudget(firstWithValue.id, getMonthKey(m)) : 0;
-                            const targets = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x));
-                            expenseCategories.forEach((c) => {
-                              const v = getBudget(c.id, getMonthKey(m));
-                              if (v > 0) copyToMonths(c.id, getMonthKey(m), v, targets);
-                            });
+                            const sourceKey = getMonthKey(m);
+                            const targetKeys = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x));
+                            for (const c of expenseCategories) {
+                              const v = getBudget(c.id, sourceKey);
+                              if (v > 0) copyToMonths(c.id, sourceKey, v, targetKeys);
+                            }
                           }}
                           className="text-xs text-blue-400 hover:text-blue-600"
                           title="Copy all values from this column to other selected months"
