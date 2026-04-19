@@ -9,6 +9,7 @@ export default function TransactionsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     account_id: "",
     category_id: "",
@@ -41,16 +42,67 @@ export default function TransactionsPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!supabaseRef.current) return;
-    const amount = formData.category_id ? -Math.abs(formData.amount) : formData.amount;
-    await supabaseRef.current.from("transactions").insert({ ...formData, amount });
 
-    // Update account balance
-    const account = accounts.find((a) => a.id === formData.account_id);
-    if (account) {
-      await supabaseRef.current
-        .from("accounts")
-        .update({ balance: Number(account.balance) + amount })
-        .eq("id", account.id);
+    // Determine sign based on category type, not just whether category is selected
+    let amount = formData.amount;
+    if (formData.category_id) {
+      const category = categories.find((c) => c.id === formData.category_id);
+      if (category?.type === "expense") {
+        amount = -Math.abs(amount); // expenses are negative
+      } else {
+        amount = Math.abs(amount); // income is positive
+      }
+    } else {
+      // No category selected — user should specify via income toggle
+      // For now treat as income (positive)
+      amount = Math.abs(amount);
+    }
+
+    if (editingId) {
+      // Get old transaction to adjust balance
+      const oldTx = transactions.find((t) => t.id === editingId);
+      const oldAmount = oldTx ? Number(oldTx.amount) : 0;
+
+      await supabaseRef.current.from("transactions").update({
+        account_id: formData.account_id,
+        category_id: formData.category_id || null,
+        description: formData.description,
+        amount,
+        date: formData.date,
+      }).eq("id", editingId);
+
+      // Adjust account balances
+      const oldAccount = accounts.find((a) => a.id === oldTx?.account_id);
+      const newAccount = accounts.find((a) => a.id === formData.account_id);
+
+      if (oldAccount) {
+        await supabaseRef.current.from("accounts")
+          .update({ balance: Number(oldAccount.balance) - oldAmount })
+          .eq("id", oldAccount.id);
+      }
+      if (newAccount) {
+        await supabaseRef.current.from("accounts")
+          .update({ balance: Number(newAccount.balance) + amount })
+          .eq("id", newAccount.id);
+      }
+
+      setEditingId(null);
+    } else {
+      await supabaseRef.current.from("transactions").insert({
+        account_id: formData.account_id,
+        category_id: formData.category_id || null,
+        description: formData.description,
+        amount,
+        date: formData.date,
+      });
+
+      // Update account balance
+      const account = accounts.find((a) => a.id === formData.account_id);
+      if (account) {
+        await supabaseRef.current.from("accounts")
+          .update({ balance: Number(account.balance) + amount })
+          .eq("id", account.id);
+      }
     }
 
     setFormData({ account_id: "", category_id: "", description: "", amount: 0, date: new Date().toISOString().split("T")[0] });
@@ -58,9 +110,34 @@ export default function TransactionsPage() {
     fetchData();
   }
 
+  function startEdit(tx: Transaction) {
+    setEditingId(tx.id);
+    setFormData({
+      account_id: tx.account_id,
+      category_id: tx.category_id || "",
+      description: tx.description,
+      amount: Math.abs(Number(tx.amount)),
+      date: tx.date,
+    });
+    setShowForm(true);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setFormData({ account_id: "", category_id: "", description: "", amount: 0, date: new Date().toISOString().split("T")[0] });
+    setShowForm(false);
+  }
+
   async function handleDelete(id: string) {
     if (!supabaseRef.current) return;
     if (confirm("Delete this transaction?")) {
+      const tx = transactions.find((t) => t.id === id);
+      const account = accounts.find((a) => a.id === tx?.account_id);
+      if (account && tx) {
+        await supabaseRef.current.from("accounts")
+          .update({ balance: Number(account.balance) - Number(tx.amount) })
+          .eq("id", account.id);
+      }
       await supabaseRef.current.from("transactions").delete().eq("id", id);
       fetchData();
     }
@@ -71,7 +148,7 @@ export default function TransactionsPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-800">Transactions</h2>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { setShowForm(!showForm); setEditingId(null); }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
         >
           {showForm ? "Cancel" : "+ Add Transaction"}
@@ -97,13 +174,13 @@ export default function TransactionsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category (optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                 <select
                   value={formData.category_id}
                   onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="">Income (no category)</option>
+                  <option value="">Select Category (for expense)</option>
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>{cat.name} ({cat.type})</option>
                   ))}
@@ -143,10 +220,19 @@ export default function TransactionsPage() {
                 />
               </div>
             </div>
-            <p className="text-xs text-gray-500">Leave category empty for income, or select one for an expense (will be stored as negative).</p>
-            <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
-              Add Transaction
-            </button>
+            <p className="text-xs text-gray-500">
+              Select an <strong>expense category</strong> to make it negative. Select an <strong>income category</strong> (or none) to make it positive.
+            </p>
+            <div className="flex gap-3">
+              <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
+                {editingId ? "Update Transaction" : "Add Transaction"}
+              </button>
+              {editingId && (
+                <button type="button" onClick={cancelEdit} className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">
+                  Cancel
+                </button>
+              )}
+            </div>
           </form>
         </div>
       )}
@@ -163,7 +249,7 @@ export default function TransactionsPage() {
                     <th className="pb-3 font-medium">Account</th>
                     <th className="pb-3 font-medium">Category</th>
                     <th className="pb-3 font-medium text-right">Amount</th>
-                    <th className="pb-3 font-medium w-10"></th>
+                    <th className="pb-3 font-medium w-20"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -176,8 +262,9 @@ export default function TransactionsPage() {
                       <td className={`py-3 font-semibold text-right ${Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {Number(tx.amount) >= 0 ? "+" : ""}${Number(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="py-3 text-center">
-                        <button onClick={() => handleDelete(tx.id)} className="text-gray-400 hover:text-red-500 transition">✕</button>
+                      <td className="py-3 text-center flex gap-2 justify-end">
+                        <button onClick={() => startEdit(tx)} className="text-blue-400 hover:text-blue-600 text-xs">Edit</button>
+                        <button onClick={() => handleDelete(tx.id)} className="text-gray-400 hover:text-red-500 text-xs">✕</button>
                       </td>
                     </tr>
                   ))}
