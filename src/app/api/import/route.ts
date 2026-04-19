@@ -22,6 +22,7 @@ export async function POST(request: Request) {
   const dateCol = formData.get('dateCol') as string;
   const descCol = formData.get('descCol') as string;
   const amountCol = formData.get('amountCol') as string;
+  const typeCol = formData.get('typeCol') as string;
 
   if (!file || !accountId) {
     return NextResponse.json({ error: 'Missing file or account' }, { status: 400 });
@@ -30,37 +31,58 @@ export async function POST(request: Request) {
   const text = await file.text();
   const { data: rows } = Papa.parse(text, { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim() });
 
-  const transactions = (rows as any[]).map((row) => {
+  let importedCount = 0;
+  let skippedCount = 0;
+
+  for (const row of rows as any[]) {
     const rawAmount = parseFloat(String(row[amountCol] || '0').replace(/[$,]/g, ''));
     const amount = isNaN(rawAmount) ? 0 : rawAmount;
     const dateStr = row[dateCol] || row['Date'] || row['date'] || '';
-    let date = dateStr;
+    const description = String(row[descCol] || row['Description'] || row['description'] || '').trim();
+    const txType = typeCol ? String(row[typeCol] || '').toLowerCase().trim() : 'income';
 
-    // Try parsing various date formats
+    let date = dateStr;
     const parsed = new Date(dateStr);
     if (!isNaN(parsed.getTime())) {
       date = parsed.toISOString().split('T')[0];
     }
 
-    return {
+    if (!description || isNaN(amount)) {
+      skippedCount++;
+      continue;
+    }
+
+    let finalAmount = 0;
+    if (txType === 'expense') {
+      finalAmount = -Math.abs(amount);
+    } else if (txType === 'income') {
+      finalAmount = Math.abs(amount);
+    } else {
+      // transfer — skip or mark differently
+      skippedCount++;
+      continue;
+    }
+
+    const { error } = await supabase.from('transactions').insert({
       account_id: accountId,
       category_id: null,
-      description: String(row[descCol] || row['Description'] || row['description'] || '').trim(),
-      amount,
+      description,
+      amount: finalAmount,
       date,
-    };
-  }).filter((t) => t.description && !isNaN(parseFloat(String(t.amount))));
+    });
 
-  if (transactions.length === 0) {
-    return NextResponse.json({ error: 'No valid transactions found' }, { status: 400 });
+    if (!error) importedCount++;
+    else console.error('Import error:', error.message);
   }
 
-  const { data, error } = await supabase
+  // Recalculate account balance from all transactions
+  const { data: txList } = await supabase
     .from('transactions')
-    .insert(transactions)
-    .select();
+    .select('amount')
+    .eq('account_id', accountId);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const totalBalance = txList?.reduce((sum, tx) => sum + Number(tx.amount), 0) || 0;
+  await supabase.from('accounts').update({ balance: totalBalance }).eq('id', accountId);
 
-  return NextResponse.json({ imported: data?.length || 0, transactions: data });
+  return NextResponse.json({ imported: importedCount, skipped: skippedCount });
 }
