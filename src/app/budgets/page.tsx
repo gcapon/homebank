@@ -92,9 +92,17 @@ export default function BudgetsPage() {
     return budget ? Number(budget.amount) : 0;
   }
 
-  function getSpent(categoryId: string, monthKey: string): number {
+  function getSpent(categoryId: string, monthKey: string, categoryType: string): number {
     return transactions
-      .filter((tx) => tx.category_id === categoryId && tx.date.startsWith(monthKey) && Number(tx.amount) < 0)
+      .filter((tx) => {
+        const isInMonth = tx.date.startsWith(monthKey);
+        const matchesCategory = tx.category_id === categoryId;
+        if (categoryType === "expense") {
+          return isInMonth && matchesCategory && Number(tx.amount) < 0;
+        } else {
+          return isInMonth && matchesCategory && Number(tx.amount) > 0;
+        }
+      })
       .reduce((sum, tx) => sum + Math.abs(Number(tx.amount)), 0);
   }
 
@@ -126,6 +134,8 @@ export default function BudgetsPage() {
   }
 
   const allCategories = categories.filter((c) => c.type === "expense" || c.type === "income");
+  const incomeCategories = allCategories.filter((c) => c.type === "income");
+  const expenseCategories = allCategories.filter((c) => c.type === "expense");
   const displayMonths = selectedMonths.length > 0 ? selectedMonths : [new Date().getMonth()];
 
   const years = [new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1];
@@ -205,72 +215,94 @@ export default function BudgetsPage() {
             </thead>
             <tbody>
               {allCategories.length > 0 ? (
-                  allCategories.map((cat) => (
-                    <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-800 sticky left-0 bg-white z-10">
-                        {cat.name}
-                      </td>
-                      {displayMonths.map((m) => {
-                        const monthKey = getMonthKey(m);
-                        const budget = getBudget(cat.id, monthKey);
-                        const spent = getSpent(cat.id, monthKey);
-                        const isEditing = editingCell?.categoryId === cat.id && editingCell?.month === monthKey;
-                        const hasData = budget > 0 || spent > 0;
-
-
-                        return (
-                          <td key={m} className="px-4 py-3 text-center">
-                            {isEditing ? (
-                              <div className="flex items-center justify-center gap-2">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={cellValue}
-                                  onChange={(e) => setCellValue(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0);
-                                    if (e.key === "Escape") cancelEdit();
-                                  }}
-                                  autoFocus
-                                  className="w-24 px-2 py-1 border border-blue-400 rounded text-center text-sm"
-                                />
-                                <button onClick={() => saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0)} className="text-green-600 hover:text-green-700 text-xs">✓</button>
-                                <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col gap-0.5 min-h-12">
-                                <div onClick={() => startEdit(cat.id, monthKey, budget)} className="cursor-pointer hover:bg-blue-50 rounded py-0.5">
-                                  {budget > 0 ? (
-                                    <span className="font-semibold text-gray-700">${budget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                                  ) : (
-                                    <span className="text-gray-300">+</span>
-                                  )}
-                                </div>
-                                {hasData && (
-                                  <div className={`text-sm ${getVarianceColor(budget, spent)}`}>
-                                    ${spent.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                <>
+                  {incomeCategories.length > 0 && (
+                    <>
+                      <tr className="bg-green-50 border-b-2 border-green-200">
+                        <td className="px-4 py-2 font-bold text-green-700 sticky left-0 bg-green-50 z-10" colSpan={displayMonths.length + 1}>📈 INCOME</td>
+                      </tr>
+                      {incomeCategories.map((cat) => (
+                        <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-800 sticky left-0 bg-white z-10">{cat.name}</td>
+                          {displayMonths.map((m) => {
+                            const monthKey = getMonthKey(m);
+                            const budget = getBudget(cat.id, monthKey);
+                            const spent = getSpent(cat.id, monthKey, cat.type);
+                            const isEditing = editingCell?.categoryId === cat.id && editingCell?.month === monthKey;
+                            const hasData = budget > 0 || spent > 0;
+                            return (
+                              <td key={m} className="px-4 py-3 text-center">
+                                {isEditing ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <input type="number" step="0.01" value={cellValue} onChange={(e) => setCellValue(e.target.value)}
+                                      onKeyDown={(e) => { if (e.key === "Enter") saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0); if (e.key === "Escape") cancelEdit(); }}
+                                      autoFocus className="w-24 px-2 py-1 border border-blue-400 rounded text-center text-sm" />
+                                    <button onClick={() => saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0)} className="text-green-600 hover:text-green-700 text-xs">✓</button>
+                                    <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col gap-0.5 min-h-12">
+                                    <div onClick={() => startEdit(cat.id, monthKey, budget)} className="cursor-pointer hover:bg-blue-50 rounded py-0.5">
+                                      {budget > 0 ? <span className="font-semibold text-gray-700">${budget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span> : <span className="text-gray-300">+</span>}
+                                    </div>
+                                    {hasData && <div className={`text-sm ${getVarianceColor(budget, spent)}`}>${spent.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>}
+                                    {displayMonths.length > 1 && budget > 0 && (
+                                      <button onClick={(e) => { e.stopPropagation(); const targets = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x)); copyToMonths(cat.id, monthKey, budget, targets); }}
+                                        className="text-xs text-blue-400 hover:text-blue-600" title="Copy to other months">↔</button>
+                                    )}
                                   </div>
                                 )}
-                                {displayMonths.length > 1 && budget > 0 && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const targets = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x));
-                                      copyToMonths(cat.id, monthKey, budget, targets);
-                                    }}
-                                    className="text-xs text-blue-400 hover:text-blue-600"
-                                    title="Copy to other months"
-                                  >
-                                    ↔
-                                  </button>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </>
+                  )}
+                  {expenseCategories.length > 0 && (
+                    <>
+                      <tr className="bg-red-50 border-b-2 border-red-200">
+                        <td className="px-4 py-2 font-bold text-red-700 sticky left-0 bg-red-50 z-10" colSpan={displayMonths.length + 1}>📉 EXPENSES</td>
+                      </tr>
+                      {expenseCategories.map((cat) => (
+                        <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-800 sticky left-0 bg-white z-10">{cat.name}</td>
+                          {displayMonths.map((m) => {
+                            const monthKey = getMonthKey(m);
+                            const budget = getBudget(cat.id, monthKey);
+                            const spent = getSpent(cat.id, monthKey, cat.type);
+                            const isEditing = editingCell?.categoryId === cat.id && editingCell?.month === monthKey;
+                            const hasData = budget > 0 || spent > 0;
+                            return (
+                              <td key={m} className="px-4 py-3 text-center">
+                                {isEditing ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    <input type="number" step="0.01" value={cellValue} onChange={(e) => setCellValue(e.target.value)}
+                                      onKeyDown={(e) => { if (e.key === "Enter") saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0); if (e.key === "Escape") cancelEdit(); }}
+                                      autoFocus className="w-24 px-2 py-1 border border-blue-400 rounded text-center text-sm" />
+                                    <button onClick={() => saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0)} className="text-green-600 hover:text-green-700 text-xs">✓</button>
+                                    <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col gap-0.5 min-h-12">
+                                    <div onClick={() => startEdit(cat.id, monthKey, budget)} className="cursor-pointer hover:bg-blue-50 rounded py-0.5">
+                                      {budget > 0 ? <span className="font-semibold text-gray-700">${budget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span> : <span className="text-gray-300">+</span>}
+                                    </div>
+                                    {hasData && <div className={`text-sm ${getVarianceColor(budget, spent)}`}>${spent.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>}
+                                    {displayMonths.length > 1 && budget > 0 && (
+                                      <button onClick={(e) => { e.stopPropagation(); const targets = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x)); copyToMonths(cat.id, monthKey, budget, targets); }}
+                                        className="text-xs text-blue-400 hover:text-blue-600" title="Copy to other months">↔</button>
+                                    )}
+                                  </div>
                                 )}
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </>
+                  )}
+                </>
               ) : (
                 <tr>
                   <td colSpan={displayMonths.length + 1} className="px-4 py-12 text-center text-gray-400">
