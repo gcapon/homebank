@@ -86,3 +86,55 @@ CREATE POLICY "Allow all for owner" ON scheduled_transactions FOR ALL USING (tru
 
 -- Index for finding due transactions
 CREATE INDEX IF NOT EXISTS idx_scheduled_next_date ON scheduled_transactions(next_date) WHERE active = true;
+
+-- Function to process due scheduled transactions (for cron)
+CREATE OR REPLACE FUNCTION process_due_scheduled_transactions()
+RETURNS void AS $$
+DECLARE
+  due_item RECORD;
+BEGIN
+  FOR due_item IN
+    SELECT st.*, a.balance as account_balance
+    FROM scheduled_transactions st
+    JOIN accounts a ON st.account_id = a.id
+    WHERE st.active = true
+      AND st.next_date <= CURRENT_DATE
+      AND st.auto_post = true
+  LOOP
+    -- Create the transaction
+    INSERT INTO transactions (account_id, category_id, description, amount, date, memo, created_at, updated_at)
+    VALUES (
+      due_item.account_id,
+      due_item.category_id,
+      due_item.description,
+      due_item.amount,
+      CURRENT_DATE,
+      due_item.memo,
+      NOW(),
+      NOW()
+    );
+    
+    -- Update account balance
+    UPDATE accounts
+    SET balance = balance + due_item.amount, updated_at = NOW()
+    WHERE id = due_item.account_id;
+    
+    -- Advance to next date
+    UPDATE scheduled_transactions
+    SET 
+      next_date = CASE
+        WHEN frequency = 'daily' THEN next_date + (interval_count || ' days')::interval
+        WHEN frequency = 'weekly' THEN next_date + (interval_count * 7 || ' days')::interval
+        WHEN frequency = 'monthly' THEN next_date + (interval_count || ' months')::interval
+        WHEN frequency = 'yearly' THEN next_date + (interval_count || ' years')::interval
+        ELSE next_date + (interval_count || ' months')::interval
+      END::date,
+      post_count = post_count + 1,
+      last_posted = CURRENT_DATE,
+      updated_at = NOW()
+    WHERE id = due_item.id;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+-- Remove the SQL function since we'll use the API
+DROP FUNCTION IF EXISTS process_due_scheduled_transactions();
