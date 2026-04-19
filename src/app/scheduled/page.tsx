@@ -182,7 +182,7 @@ export default function ScheduledPage() {
 
   function isDue(item: typeof items[0]) {
     const today = new Date().toISOString().split("T")[0];
-    return item.active && item.next_date <= today;
+    return (item.active !== false) && item.next_date && item.next_date <= today;
   }
 
   function computeOccurrences(sched: typeof items[0], maxDays: number): string[] {
@@ -277,9 +277,10 @@ export default function ScheduledPage() {
   const today = new Date().toISOString().split("T")[0];
   for (const item of items) {
     if (!item.active) continue;
-    // Skip items with invalid frequency data
-    if (!item.frequency || !item.next_date) continue;
-    const occs = computeOccurrences(item, daysFilter === 999 ? 365 : daysFilter);
+    // Guard against NULL frequency — use a safe default for old records
+    const freq = item.frequency || "monthly";
+    const intCount = item.interval_count || 1;
+    const occs = computeOccurrences({ ...item, frequency: freq, interval_count: intCount }, daysFilter === 999 ? 365 : daysFilter);
     for (const occ of occs) {
       if (occ < today) continue; // skip past
       allOccurrences.push({ ...item, occurrenceDate: occ });
