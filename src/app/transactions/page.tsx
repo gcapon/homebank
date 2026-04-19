@@ -326,7 +326,13 @@ export default function TransactionsPage() {
       const cb = (b as any).created_at || b.id;
       return ca.localeCompare(cb);
     });
-    // DEBUG same-day sort - check any date group with >1
+    let running = Number(selectedAccount.opening_balance);
+    const map = new Map<string, number>();
+    for (const tx of sorted) {
+      running += Number(tx.amount);
+      map.set(tx.id, running);
+    }
+    // DEBUG same-day sort
     const dateGroups: Record<string, typeof sorted> = {};
     for (const tx of sorted) {
       if (!dateGroups[tx.date]) dateGroups[tx.date] = [];
@@ -334,13 +340,13 @@ export default function TransactionsPage() {
     }
     const debugDate = Object.keys(dateGroups).find((d) => dateGroups[d].length > 1);
     if (debugDate) {
-      console.log("[DEBUG same-day sort]", dateGroups[debugDate].map((t) => ({ id: t.id.slice(0, 8), date: t.date, created_at: (t as any).created_at, amount: t.amount })));
-    }
-    let running = Number(selectedAccount.opening_balance);
-    const map = new Map<string, number>();
-    for (const tx of sorted) {
-      running += Number(tx.amount);
-      map.set(tx.id, running);
+      console.log("[DEBUG same-day sort]", JSON.stringify(dateGroups[debugDate].map((t) => ({
+        id: t.id.slice(0, 8),
+        date: t.date,
+        created_at: (t as any).created_at,
+        amount: t.amount,
+        running: map.get(t.id)
+      })), null, 2));
     }
     return map;
   }, [filteredTransactions, selectedAccountId, selectedAccount]);
