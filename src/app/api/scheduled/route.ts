@@ -40,7 +40,6 @@ export async function POST(req: Request) {
         description: s.description,
         amount: s.amount,
         date: new Date().toISOString().split("T")[0],
-        memo: s.memo || "",
       });
 
       if (txError) return NextResponse.json({ error: txError.message }, { status: 500 });
