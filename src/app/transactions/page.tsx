@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import type { Transaction, Account, Category } from "@/types";
 
@@ -264,6 +264,20 @@ export default function TransactionsPage() {
     ? transactions.filter((tx) => tx.account_id === selectedAccountId)
     : transactions;
 
+  // Compute running balance for the selected account (date ascending for accumulation)
+  const selectedAccount = selectedAccountId ? accounts.find((a) => a.id === selectedAccountId) : null;
+  const runningBalanceMap = useMemo(() => {
+    if (!selectedAccountId || !selectedAccount) return new Map<string, number>();
+    const sorted = [...filteredTransactions].sort((a, b) => a.date.localeCompare(b.date));
+    let running = Number(selectedAccount.opening_balance);
+    const map = new Map<string, number>();
+    for (const tx of sorted) {
+      running += Number(tx.amount);
+      map.set(tx.id, running);
+    }
+    return map;
+  }, [filteredTransactions, selectedAccountId, selectedAccount]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -449,6 +463,7 @@ export default function TransactionsPage() {
                     <th className="pb-3 font-medium w-10"></th>
                     <th className="pb-3 font-medium">Date</th>
                     <th className="pb-3 font-medium">Description</th>
+                    {selectedAccountId && <th className="pb-3 font-medium text-right">Balance</th>}
                     <th className="pb-3 font-medium">Account</th>
                     <th className="pb-3 font-medium">Category</th>
                     <th className="pb-3 font-medium text-right">Amount</th>
@@ -479,6 +494,11 @@ export default function TransactionsPage() {
                       <td className={`py-3 font-semibold text-right ${Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {Number(tx.amount) >= 0 ? "+" : ""}${Number(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                       </td>
+                      {selectedAccountId && (
+                        <td className={`py-3 text-right font-medium ${(runningBalanceMap.get(tx.id) || 0) >= 0 ? "text-gray-700" : "text-red-600"}`}>
+                          ${(runningBalanceMap.get(tx.id) || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        </td>
+                      )}
                       <td className="py-3 text-center flex gap-2 justify-end">
                         <button onClick={() => startEdit(tx)} className="text-blue-400 hover:text-blue-600 text-xs">Edit</button>
                         <button onClick={() => handleDelete(tx.id)} className="text-gray-400 hover:text-red-500 text-xs">✕</button>

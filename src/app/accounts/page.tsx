@@ -10,7 +10,7 @@ export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: "", type: "checking" as AccountType, balance: 0, currency: "USD" });
+  const [formData, setFormData] = useState({ name: "", type: "checking" as AccountType, opening_balance: 0, currency: "USD" });
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
   useEffect(() => {
@@ -32,22 +32,21 @@ export default function AccountsPage() {
     if (!supabaseRef.current) return;
 
     if (editingId) {
-      // For liability accounts (credit), normalize balance to negative
-      const finalBalance = formData.type === "credit" ? -Math.abs(formData.balance) : formData.balance;
+      // Balance is calculated: sum of transactions + opening_balance. Update opening_balance only.
       await supabaseRef.current.from("accounts").update({
         name: formData.name,
         type: formData.type,
         currency: formData.currency,
-        balance: finalBalance,
+        opening_balance: formData.opening_balance,
       }).eq("id", editingId);
       setEditingId(null);
     } else {
-      // For liability accounts (credit), opening balance is negative
-      const initialBalance = formData.type === "credit" ? -Math.abs(formData.balance) : formData.balance;
+      // Opening balance for new account; balance starts same as opening balance
+      const initialBalance = formData.type === "credit" ? -Math.abs(formData.opening_balance) : formData.opening_balance;
       await supabaseRef.current.from("accounts").insert({ ...formData, balance: initialBalance });
     }
 
-    setFormData({ name: "", type: "checking", balance: 0, currency: "USD" });
+    setFormData({ name: "", type: "checking", opening_balance: 0, currency: "USD" });
     setShowForm(false);
     fetchAccounts();
   }
@@ -57,7 +56,7 @@ export default function AccountsPage() {
     setFormData({
       name: acc.name,
       type: acc.type as AccountType,
-      balance: Number(acc.balance),
+      opening_balance: Number(acc.opening_balance),
       currency: acc.currency,
     });
     setShowForm(true);
@@ -65,7 +64,7 @@ export default function AccountsPage() {
 
   function cancelEdit() {
     setEditingId(null);
-    setFormData({ name: "", type: "checking", balance: 0, currency: "USD" });
+    setFormData({ name: "", type: "checking", opening_balance: 0, currency: "USD" });
     setShowForm(false);
   }
 
@@ -137,22 +136,23 @@ export default function AccountsPage() {
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.balance}
-                    onChange={(e) => setFormData({ ...formData, balance: parseFloat(e.target.value) || 0 })}
+                    value={formData.opening_balance}
+                    onChange={(e) => setFormData({ ...formData, opening_balance: parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
               )}
               {editingId && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Current Balance</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Opening Balance</label>
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.balance}
-                    onChange={(e) => setFormData({ ...formData, balance: parseFloat(e.target.value) || 0 })}
+                    value={formData.opening_balance}
+                    onChange={(e) => setFormData({ ...formData, opening_balance: parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                  <p className="text-xs text-gray-400 mt-1">Current balance is calculated from transactions</p>
                 </div>
               )}
             </div>
@@ -199,9 +199,12 @@ export default function AccountsPage() {
                     <span className="text-xs text-gray-500 uppercase">{acc.type}</span>
                   </div>
                   <p className="font-semibold text-gray-800">{acc.name}</p>
-                  <p className={`text-xl font-bold ${Number(acc.balance) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                    ${Number(acc.balance).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  <p className={`text-xl font-bold ${Number(acc.balance) + Number(acc.opening_balance) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    ${(Number(acc.balance) + Number(acc.opening_balance)).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </p>
+                  {Number(acc.opening_balance) !== 0 && (
+                    <p className="text-xs text-gray-400">Opening: ${Number(acc.opening_balance).toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+                  )}
                 </div>
               ))}
             </div>

@@ -5,6 +5,7 @@ export interface Account {
   name: string;
   type: AccountType;
   balance: number;
+  opening_balance: number;
   currency: string;
   created_at: string;
   updated_at: string;

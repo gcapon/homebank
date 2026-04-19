@@ -21,7 +21,7 @@ export default function HomePage() {
     });
   }, []);
 
-  const totalBalance = accounts.reduce((sum, acc) => sum + Number(acc.balance), 0) || 0;
+  const totalBalance = accounts.reduce((sum, acc) => sum + Number(acc.balance) + Number(acc.opening_balance), 0) || 0;
   const totalIncome = transactions.filter((t) => t.amount > 0).reduce((sum, t) => sum + Number(t.amount), 0) || 0;
   const totalExpenses = transactions.filter((t) => t.amount < 0).reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0) || 0;
 

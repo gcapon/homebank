@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   name TEXT NOT NULL,
   type TEXT NOT NULL DEFAULT 'checking',
   balance NUMERIC(12, 2) DEFAULT 0,
+  opening_balance NUMERIC(12, 2) DEFAULT 0,
   currency TEXT DEFAULT 'USD',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
