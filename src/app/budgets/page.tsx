@@ -106,6 +106,20 @@ export default function BudgetsPage() {
     return "text-green-600";
   }
 
+  function getUnbudgetedSpent(monthKey: string): number {
+    const categoryBudgetedIds = new Set(
+      budgets.filter((b) => b.month === monthKey && Number(b.amount) > 0).map((b) => b.category_id)
+    );
+    return transactions
+      .filter((tx) => {
+        const isExpense = Number(tx.amount) < 0;
+        const isInMonth = tx.date.startsWith(monthKey);
+        const isNotBudgeted = !categoryBudgetedIds.has(tx.category_id || "");
+        return isExpense && isInMonth && isNotBudgeted;
+      })
+      .reduce((sum, tx) => sum + Math.abs(Number(tx.amount)), 0);
+  }
+
   function getMonthKey(monthIndex: number): string {
     return `${selectedYear}-${String(monthIndex + 1).padStart(2, "0")}`;
   }
@@ -204,48 +218,42 @@ export default function BudgetsPage() {
             </thead>
             <tbody>
               {expenseCategories.length > 0 ? (
-                expenseCategories.map((cat) => (
-                  <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-800 sticky left-0 bg-white z-10">
-                      {cat.name}
-                    </td>
-                    {displayMonths.map((m) => {
-                      const monthKey = getMonthKey(m);
-                      const budget = getBudget(cat.id, monthKey);
-                      const spent = getSpent(cat.id, monthKey);
-                      const isEditing = editingCell?.categoryId === cat.id && editingCell?.month === monthKey;
-                      const hasData = budget > 0 || spent > 0;
+                <>
+                  {expenseCategories.map((cat) => (
+                    <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium text-gray-800 sticky left-0 bg-white z-10">
+                        {cat.name}
+                      </td>
+                      {displayMonths.map((m) => {
+                        const monthKey = getMonthKey(m);
+                        const budget = getBudget(cat.id, monthKey);
+                        const spent = getSpent(cat.id, monthKey);
+                        const isEditing = editingCell?.categoryId === cat.id && editingCell?.month === monthKey;
+                        const hasData = budget > 0 || spent > 0;
 
-                      return (
-                        <td key={m} className="px-4 py-3 text-center">
-                          {isEditing ? (
-                            <div className="flex items-center justify-center gap-2">
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={cellValue}
-                                onChange={(e) => setCellValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0);
-                                  if (e.key === "Escape") cancelEdit();
-                                }}
-                                autoFocus
-                                className="w-24 px-2 py-1 border border-blue-400 rounded text-center text-sm"
-                              />
-                              <button
-                                onClick={() => saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0)}
-                                className="text-green-600 hover:text-green-700 text-xs"
-                              >
-                                ✓
-                              </button>
-                              <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col gap-0.5 min-h-12">
-                                <div
-                                  onClick={() => startEdit(cat.id, monthKey, budget)}
-                                  className="cursor-pointer hover:bg-blue-50 rounded py-0.5"
-                                >
+
+                        return (
+                          <td key={m} className="px-4 py-3 text-center">
+                            {isEditing ? (
+                              <div className="flex items-center justify-center gap-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={cellValue}
+                                  onChange={(e) => setCellValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0);
+                                    if (e.key === "Escape") cancelEdit();
+                                  }}
+                                  autoFocus
+                                  className="w-24 px-2 py-1 border border-blue-400 rounded text-center text-sm"
+                                />
+                                <button onClick={() => saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0)} className="text-green-600 hover:text-green-700 text-xs">✓</button>
+                                <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col gap-0.5 min-h-12">
+                                <div onClick={() => startEdit(cat.id, monthKey, budget)} className="cursor-pointer hover:bg-blue-50 rounded py-0.5">
                                   {budget > 0 ? (
                                     <span className="font-semibold text-gray-700">${budget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
                                   ) : (
@@ -271,12 +279,35 @@ export default function BudgetsPage() {
                                   </button>
                                 )}
                               </div>
-                          )}
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                  {/* Unbudgeted summary row */}
+                  <tr className="bg-gray-100 border-t-2 border-gray-300">
+                    <td className="px-4 py-3 font-bold text-gray-600 sticky left-0 bg-gray-100 z-10">
+                      Uncategorized / Unbudgeted
+                    </td>
+                    {displayMonths.map((m) => {
+                      const monthKey = getMonthKey(m);
+                      const unbudgetedSpent = getUnbudgetedSpent(monthKey);
+                      return (
+                        <td key={m} className="px-4 py-3 text-center">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-gray-300 text-lg">—</span>
+                            {unbudgetedSpent > 0 && (
+                              <div className="text-sm text-red-500 font-medium">
+                                ${unbudgetedSpent.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                              </div>
+                            )}
+                          </div>
                         </td>
                       );
                     })}
                   </tr>
-                ))
+                </>
               ) : (
                 <tr>
                   <td colSpan={displayMonths.length + 1} className="px-4 py-12 text-center text-gray-400">
