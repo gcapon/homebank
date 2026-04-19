@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useRef } from "react";
+import { createBrowserClient } from "@supabase/ssr";
 import type { Budget, Category } from "@/types";
 
 export default function BudgetsPage() {
@@ -9,16 +9,21 @@ export default function BudgetsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ category_id: "", amount: 0, month: "" });
-  const supabase = createClient();
+  const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
   useEffect(() => {
+    supabaseRef.current = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     fetchData();
   }, []);
 
   async function fetchData() {
+    if (!supabaseRef.current) return;
     const [budgetResult, catResult] = await Promise.all([
-      supabase.from("budgets").select("*, categories(name)").order("month", { ascending: false }),
-      supabase.from("categories").select("*").order("name"),
+      supabaseRef.current.from("budgets").select("*, categories(name)").order("month", { ascending: false }),
+      supabaseRef.current.from("categories").select("*").order("name"),
     ]);
     if (budgetResult.data) setBudgets(budgetResult.data);
     if (catResult.data) setCategories(catResult.data);
@@ -26,17 +31,19 @@ export default function BudgetsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!supabaseRef.current) return;
     const now = new Date();
     const month = formData.month || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    await supabase.from("budgets").insert({ category_id: formData.category_id, amount: formData.amount, month });
+    await supabaseRef.current.from("budgets").insert({ category_id: formData.category_id, amount: formData.amount, month });
     setFormData({ category_id: "", amount: 0, month: "" });
     setShowForm(false);
     fetchData();
   }
 
   async function handleDelete(id: string) {
+    if (!supabaseRef.current) return;
     if (confirm("Delete this budget?")) {
-      await supabase.from("budgets").delete().eq("id", id);
+      await supabaseRef.current.from("budgets").delete().eq("id", id);
       fetchData();
     }
   }

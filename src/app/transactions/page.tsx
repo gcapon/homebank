@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useRef } from "react";
+import { createBrowserClient } from "@supabase/ssr";
 import type { Transaction, Account, Category } from "@/types";
 
 export default function TransactionsPage() {
@@ -16,17 +16,22 @@ export default function TransactionsPage() {
     amount: 0,
     date: new Date().toISOString().split("T")[0],
   });
-  const supabase = createClient();
+  const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
   useEffect(() => {
+    supabaseRef.current = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     fetchData();
   }, []);
 
   async function fetchData() {
+    if (!supabaseRef.current) return;
     const [txResult, accResult, catResult] = await Promise.all([
-      supabase.from("transactions").select("*, accounts(name), categories(name)").order("date", { ascending: false }),
-      supabase.from("accounts").select("*").order("name"),
-      supabase.from("categories").select("*").order("name"),
+      supabaseRef.current.from("transactions").select("*, accounts(name), categories(name)").order("date", { ascending: false }),
+      supabaseRef.current.from("accounts").select("*").order("name"),
+      supabaseRef.current.from("categories").select("*").order("name"),
     ]);
     if (txResult.data) setTransactions(txResult.data);
     if (accResult.data) setAccounts(accResult.data);
@@ -35,26 +40,28 @@ export default function TransactionsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!supabaseRef.current) return;
     const amount = formData.category_id ? -Math.abs(formData.amount) : formData.amount;
-    await supabase.from("transactions").insert({ ...formData, amount });
-    
+    await supabaseRef.current.from("transactions").insert({ ...formData, amount });
+
     // Update account balance
     const account = accounts.find((a) => a.id === formData.account_id);
     if (account) {
-      await supabase
+      await supabaseRef.current
         .from("accounts")
         .update({ balance: Number(account.balance) + amount })
         .eq("id", account.id);
     }
-    
+
     setFormData({ account_id: "", category_id: "", description: "", amount: 0, date: new Date().toISOString().split("T")[0] });
     setShowForm(false);
     fetchData();
   }
 
   async function handleDelete(id: string) {
+    if (!supabaseRef.current) return;
     if (confirm("Delete this transaction?")) {
-      await supabase.from("transactions").delete().eq("id", id);
+      await supabaseRef.current.from("transactions").delete().eq("id", id);
       fetchData();
     }
   }

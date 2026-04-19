@@ -1,35 +1,42 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useRef } from "react";
+import { createBrowserClient } from "@supabase/ssr";
 import type { Category } from "@/types";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", type: "expense" as "income" | "expense", parent_id: "" });
-  const supabase = createClient();
+  const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
   useEffect(() => {
+    supabaseRef.current = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     fetchCategories();
   }, []);
 
   async function fetchCategories() {
-    const { data } = await supabase.from("categories").select("*").order("name");
+    if (!supabaseRef.current) return;
+    const { data } = await supabaseRef.current.from("categories").select("*").order("name");
     if (data) setCategories(data);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await supabase.from("categories").insert({ ...formData, parent_id: formData.parent_id || null });
+    if (!supabaseRef.current) return;
+    await supabaseRef.current.from("categories").insert({ ...formData, parent_id: formData.parent_id || null });
     setFormData({ name: "", type: "expense", parent_id: "" });
     setShowForm(false);
     fetchCategories();
   }
 
   async function handleDelete(id: string) {
+    if (!supabaseRef.current) return;
     if (confirm("Delete this category?")) {
-      await supabase.from("categories").delete().eq("id", id);
+      await supabaseRef.current.from("categories").delete().eq("id", id);
       fetchCategories();
     }
   }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useRef } from "react";
+import { createBrowserClient } from "@supabase/ssr";
 import type { Account, AccountType } from "@/types";
 
 const ACCOUNT_TYPES: AccountType[] = ["checking", "savings", "credit", "cash", "investment", "other"];
@@ -10,28 +10,35 @@ export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", type: "checking" as AccountType, balance: 0, currency: "USD" });
-  const supabase = createClient();
+  const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
   useEffect(() => {
+    supabaseRef.current = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     fetchAccounts();
   }, []);
 
   async function fetchAccounts() {
-    const { data } = await supabase.from("accounts").select("*").order("created_at", { ascending: false });
+    if (!supabaseRef.current) return;
+    const { data } = await supabaseRef.current.from("accounts").select("*").order("created_at", { ascending: false });
     if (data) setAccounts(data);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await supabase.from("accounts").insert(formData);
+    if (!supabaseRef.current) return;
+    await supabaseRef.current.from("accounts").insert(formData);
     setFormData({ name: "", type: "checking", balance: 0, currency: "USD" });
     setShowForm(false);
     fetchAccounts();
   }
 
   async function handleDelete(id: string) {
+    if (!supabaseRef.current) return;
     if (confirm("Delete this account?")) {
-      await supabase.from("accounts").delete().eq("id", id);
+      await supabaseRef.current.from("accounts").delete().eq("id", id);
       fetchAccounts();
     }
   }

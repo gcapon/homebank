@@ -1,18 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useRef } from "react";
+import { createBrowserClient } from "@supabase/ssr";
 
 export default function ReportsPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reportData, setReportData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const supabase = createClient();
+  const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
+
+  useEffect(() => {
+    supabaseRef.current = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    setStartDate(firstDay.toISOString().split("T")[0]);
+    setEndDate(now.toISOString().split("T")[0]);
+  }, []);
 
   async function generateReport() {
+    if (!supabaseRef.current) return;
     setLoading(true);
-    let query = supabase
+    let query = supabaseRef.current
       .from("transactions")
       .select("*, categories(name), accounts(name)");
 
@@ -49,13 +61,6 @@ export default function ReportsPage() {
     }
     setLoading(false);
   }
-
-  useEffect(() => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    setStartDate(firstDay.toISOString().split("T")[0]);
-    setEndDate(now.toISOString().split("T")[0]);
-  }, []);
 
   return (
     <div className="space-y-6">
