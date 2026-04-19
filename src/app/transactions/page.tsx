@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import type { Transaction, Account, Category } from "@/types";
 
+type TxType = "expense" | "income" | "transfer";
+
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -11,6 +13,7 @@ export default function TransactionsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+  const [transactionType, setTransactionType] = useState<TxType>("expense");
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -19,6 +22,7 @@ export default function TransactionsPage() {
 
   const [formData, setFormData] = useState({
     account_id: "",
+    to_account_id: "",
     category_id: "",
     description: "",
     amount: 0,
@@ -50,23 +54,42 @@ export default function TransactionsPage() {
     e.preventDefault();
     if (!supabaseRef.current) return;
 
-    // Determine sign based on category type, not just whether category is selected
-    let amount = formData.amount;
-    if (formData.category_id) {
+    if (transactionType === "transfer") {
+      // Use the transfer API
+      const res = await fetch("/api/transfers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from_account_id: formData.account_id,
+          to_account_id: formData.to_account_id,
+          amount: Math.abs(formData.amount),
+          date: formData.date,
+          description: formData.description,
+        }),
+      });
+      if (res.ok) {
+        setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, date: defaultDate });
+        setShowForm(false);
+        fetchData();
+      } else {
+        const err = await res.json();
+        alert("Error: " + err.error);
+      }
+      return;
+    }
+
+    // Expense or Income
+    let amount = Math.abs(formData.amount);
+    if (transactionType === "expense" && formData.category_id) {
       const category = categories.find((c) => c.id === formData.category_id);
       if (category?.type === "expense") {
-        amount = -Math.abs(amount); // expenses are negative
-      } else {
-        amount = Math.abs(amount); // income is positive
+        amount = -Math.abs(amount);
       }
-    } else {
-      // No category selected — user should specify via income toggle
-      // For now treat as income (positive)
-      amount = Math.abs(amount);
+    } else if (transactionType === "expense" && !formData.category_id) {
+      amount = -Math.abs(amount);
     }
 
     if (editingId) {
-      // Get old transaction to adjust balance
       const oldTx = transactions.find((t) => t.id === editingId);
       const oldAmount = oldTx ? Number(oldTx.amount) : 0;
 
@@ -78,7 +101,6 @@ export default function TransactionsPage() {
         date: formData.date,
       }).eq("id", editingId);
 
-      // Adjust account balances
       const oldAccount = accounts.find((a) => a.id === oldTx?.account_id);
       const newAccount = accounts.find((a) => a.id === formData.account_id);
 
@@ -92,7 +114,6 @@ export default function TransactionsPage() {
           .update({ balance: Number(newAccount.balance) + amount })
           .eq("id", newAccount.id);
       }
-
       setEditingId(null);
     } else {
       await supabaseRef.current.from("transactions").insert({
@@ -103,7 +124,6 @@ export default function TransactionsPage() {
         date: formData.date,
       });
 
-      // Update account balance
       const account = accounts.find((a) => a.id === formData.account_id);
       if (account) {
         await supabaseRef.current.from("accounts")
@@ -112,27 +132,44 @@ export default function TransactionsPage() {
       }
     }
 
-    setFormData({ account_id: "", category_id: "", description: "", amount: 0, date: defaultDate });
+    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, date: defaultDate });
     setShowForm(false);
     fetchData();
   }
 
   function startEdit(tx: Transaction) {
     setEditingId(tx.id);
-    setFormData({
-      account_id: tx.account_id,
-      category_id: tx.category_id || "",
-      description: tx.description,
-      amount: Math.abs(Number(tx.amount)),
-      date: tx.date,
-    });
+    const isTransfer = tx.transfer_id;
+    if (isTransfer) {
+      setTransactionType("transfer");
+      // transfers have two tx with same transfer_id — show the pair info in description
+      setFormData({
+        account_id: tx.account_id,
+        to_account_id: "",
+        category_id: "",
+        description: tx.description,
+        amount: Math.abs(Number(tx.amount)),
+        date: tx.date,
+      });
+    } else {
+      setTransactionType(Number(tx.amount) < 0 ? "expense" : "income");
+      setFormData({
+        account_id: tx.account_id,
+        to_account_id: "",
+        category_id: tx.category_id || "",
+        description: tx.description,
+        amount: Math.abs(Number(tx.amount)),
+        date: tx.date,
+      });
+    }
     setShowForm(true);
   }
 
   function cancelEdit() {
     setEditingId(null);
-    setFormData({ account_id: "", category_id: "", description: "", amount: 0, date: defaultDate });
+    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, date: defaultDate });
     setShowForm(false);
+    setTransactionType("expense");
   }
 
   async function handleDelete(id: string) {
@@ -152,7 +189,6 @@ export default function TransactionsPage() {
 
   async function handleReconcile(id: string, reconciled: boolean) {
     if (!supabaseRef.current) return;
-    // Optimistic update — update local state immediately, no refetch
     setTransactions((prev) =>
       prev.map((tx) => (tx.id === id ? { ...tx, reconciled } : tx))
     );
@@ -185,7 +221,8 @@ export default function TransactionsPage() {
           onClick={() => {
             setShowForm(!showForm);
             setEditingId(null);
-            if (selectedAccountId && !editingId) {
+            setTransactionType("expense");
+            if (selectedAccountId) {
               setFormData({ ...formData, account_id: selectedAccountId });
             }
           }}
@@ -198,13 +235,35 @@ export default function TransactionsPage() {
       {showForm && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Type selector */}
+            <div className="flex gap-2 mb-2">
+              {(["expense", "income", "transfer"] as TxType[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => { setTransactionType(t); }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                    transactionType === t
+                      ? t === "expense" ? "bg-red-100 text-red-700 border-2 border-red-300"
+                        : t === "income" ? "bg-green-100 text-green-700 border-2 border-green-300"
+                        : "bg-blue-100 text-blue-700 border-2 border-blue-300"
+                      : "bg-gray-50 text-gray-600 border-2 border-transparent hover:bg-gray-100"
+                  }`}
+                >
+                  {t === "expense" ? "💸 Expense" : t === "income" ? "💰 Income" : "↔️ Transfer/Payment"}
+                </button>
+              ))}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Account</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {transactionType === "transfer" ? "From Account" : "Account"}
+                </label>
                 <select
                   value={formData.account_id}
                   onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 >
                   <option value="">Select Account</option>
@@ -213,30 +272,62 @@ export default function TransactionsPage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select
-                  value={formData.category_id}
-                  onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select Category (for expense)</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name} ({cat.type})</option>
-                  ))}
-                </select>
-              </div>
+
+              {transactionType === "transfer" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">To Account</label>
+                  <select
+                    value={formData.to_account_id}
+                    onChange={(e) => setFormData({ ...formData, to_account_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Select Account</option>
+                    {accounts.filter((a) => a.id !== formData.account_id).map((acc) => (
+                      <option key={acc.id} value={acc.id}>{acc.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {transactionType !== "transfer" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Category {transactionType === "income" ? "(optional)" : "(for expense)"}
+                  </label>
+                  <select
+                    value={formData.category_id}
+                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">
+                      {transactionType === "income" ? "No category (income)" : "Select Category"}
+                    </option>
+                    {categories
+                      .filter((c) => transactionType === "income" ? c.type === "income" : c.type === "expense")
+                      .map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <input
                   type="text"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Grocery shopping"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder={
+                    transactionType === "expense" ? "Grocery shopping"
+                      : transactionType === "income" ? "Paycheck"
+                      : "Credit card payment"
+                  }
                   required
                 />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
                 <input
@@ -244,25 +335,24 @@ export default function TransactionsPage() {
                   step="0.01"
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="50.00"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="0.00"
                   required
                 />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                 <input
                   type="date"
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
             </div>
-            <p className="text-xs text-gray-500">
-              Select an <strong>expense category</strong> to make it negative. Select an <strong>income category</strong> (or none) to make it positive.
-            </p>
+
             <div className="flex gap-3">
               <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
                 {editingId ? "Update Transaction" : "Add Transaction"}
@@ -279,7 +369,7 @@ export default function TransactionsPage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="p-6">
-          {transactions.length > 0 ? (
+          {filteredTransactions.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -306,7 +396,12 @@ export default function TransactionsPage() {
                         />
                       </td>
                       <td className="py-3 text-sm text-gray-600">{tx.date}</td>
-                      <td className="py-3 font-medium text-gray-800">{tx.description}</td>
+                      <td className="py-3 font-medium text-gray-800">
+                        {tx.description}
+                        {tx.transfer_id && (
+                          <span className="ml-2 text-xs text-blue-500 bg-blue-100 px-1.5 py-0.5 rounded">↔️</span>
+                        )}
+                      </td>
                       <td className="py-3 text-sm text-gray-600">{(tx as any).accounts?.name || "-"}</td>
                       <td className="py-3 text-sm text-gray-600">{(tx as any).categories?.name || "-"}</td>
                       <td className={`py-3 font-semibold text-right ${Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>
