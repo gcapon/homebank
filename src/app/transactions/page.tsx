@@ -42,7 +42,7 @@ export default function TransactionsPage() {
   async function fetchData() {
     if (!supabaseRef.current) return;
     const [txResult, accResult, catResult] = await Promise.all([
-      supabaseRef.current.from("transactions").select("*, accounts(name), categories(name)").order("date", { ascending: false }),
+      supabaseRef.current.from("transactions").select("id, account_id, category_id, description, amount, date, reconciled, transfer_id, created_at, accounts(name), categories(name)").order("date", { ascending: false }),
       supabaseRef.current.from("accounts").select("*").order("name"),
       supabaseRef.current.from("categories").select("*").order("name"),
     ]);
