@@ -72,7 +72,7 @@ export default async function HomePage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <a
           href="/accounts"
           className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2"
@@ -101,6 +101,23 @@ export default async function HomePage() {
           <span className="text-2xl">📈</span>
           <span className="text-sm font-medium text-gray-700">View Reports</span>
         </a>
+        <button
+          onClick={async () => {
+            const res = await fetch("/api/export");
+            const data = await res.json();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `homebank-backup-${new Date().toISOString().split("T")[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2 cursor-pointer"
+        >
+          <span className="text-2xl">💾</span>
+          <span className="text-sm font-medium text-gray-700">Export Backup</span>
+        </button>
       </div>
 
       {/* Recent Transactions */}
