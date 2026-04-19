@@ -97,8 +97,38 @@ export default function HomePage() {
           }}
           className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2 cursor-pointer"
         >
-          <span className="text-2xl">💾</span>
-          <span className="text-sm font-medium text-gray-700">Export Backup</span>
+          <span className="text-2xl">📄</span>
+          <span className="text-sm font-medium text-gray-700">Export JSON</span>
+        </button>
+        <button
+          onClick={async () => {
+            const res = await fetch("/api/export");
+            const data = await res.json();
+            // Convert transactions to CSV
+            const headers = ["id", "date", "description", "amount", "account", "category", "reconciled", "transfer_id"];
+            const rows = data.transactions.map((tx: any) => [
+              tx.id,
+              tx.date,
+              `"${(tx.description || "").replace(/"/g, '""')}"`,
+              tx.amount,
+              `"${(tx.account_id || "").replace(/"/g, '""')}"`,
+              `"${(tx.category_id || "").replace(/"/g, '""')}"`,
+              tx.reconciled,
+              tx.transfer_id || "",
+            ].join(","));
+            const csv = [headers.join(","), ...rows].join("\n");
+            const blob = new Blob([csv], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `homebank-transactions-${new Date().toISOString().split("T")[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2 cursor-pointer"
+        >
+          <span className="text-2xl">📊</span>
+          <span className="text-sm font-medium text-gray-700">Export CSV</span>
         </button>
       </div>
 
