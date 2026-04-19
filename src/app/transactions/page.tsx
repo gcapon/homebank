@@ -326,9 +326,10 @@ export default function TransactionsPage() {
       const cb = (b as any).created_at || b.id;
       return ca.localeCompare(cb);
     });
-    // DEBUG
-    if (sorted.length > 0 && sorted[0].date === sorted[sorted.length - 1].date) {
-      console.log("[DEBUG same-day sort]", sorted.slice(0, 5).map((t) => ({ id: t.id.slice(0, 8), date: t.date, created_at: (t as any).created_at, amount: t.amount })));
+    // DEBUG same-day sort
+    const sameDay = sorted.filter((t) => t.date === sorted[0].date);
+    if (sameDay.length > 1) {
+      console.log("[DEBUG same-day sort]", sameDay.map((t) => ({ id: t.id.slice(0, 8), date: t.date, created_at: (t as any).created_at, amount: t.amount })));
     }
     let running = Number(selectedAccount.opening_balance);
     const map = new Map<string, number>();
