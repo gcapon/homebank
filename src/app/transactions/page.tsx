@@ -292,23 +292,21 @@ export default function TransactionsPage() {
                 </thead>
                 <tbody>
                   {filteredTransactions.map((tx) => (
-                    <tr key={tx.id} className={`border-b border-gray-50 last:border-0 ${tx.reconciled ? "bg-green-50" : ""}`}>
+                    <tr key={tx.id} className={`border-b border-gray-50 last:border-0 ${tx.reconciled ? "opacity-60" : ""}`}>
                       <td className="py-3">
-                        <button
-                          onClick={() => handleReconcile(tx.id, !tx.reconciled)}
-                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
-                            tx.reconciled ? "bg-green-500 border-green-500 text-white" : "border-gray-300 hover:border-green-400"
-                          }`}
+                        <input
+                          type="checkbox"
+                          checked={tx.reconciled}
+                          onChange={() => handleReconcile(tx.id, !tx.reconciled)}
+                          className="w-4 h-4 rounded cursor-pointer accent-green-600"
                           title={tx.reconciled ? "Reconciled — click to unmark" : "Mark as reconciled"}
-                        >
-                          {tx.reconciled && <span className="text-xs">✓</span>}
-                        </button>
+                        />
                       </td>
-                      <td className={`py-3 text-sm ${tx.reconciled ? "text-gray-500" : "text-gray-600"}`}>{tx.date}</td>
-                      <td className={`py-3 font-medium ${tx.reconciled ? "text-gray-500" : "text-gray-800"}`}>{tx.description}</td>
-                      <td className={`py-3 text-sm ${tx.reconciled ? "text-gray-500" : "text-gray-600"}`}>{(tx as any).accounts?.name || "-"}</td>
-                      <td className={`py-3 text-sm ${tx.reconciled ? "text-gray-500" : "text-gray-600"}`}>{(tx as any).categories?.name || "-"}</td>
-                      <td className={`py-3 font-semibold text-right ${tx.reconciled ? "text-green-500" : Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      <td className={`py-3 text-sm ${tx.reconciled ? "text-gray-400" : "text-gray-600"}`}>{tx.date}</td>
+                      <td className={`py-3 font-medium ${tx.reconciled ? "text-gray-400" : "text-gray-800"}`}>{tx.description}</td>
+                      <td className={`py-3 text-sm ${tx.reconciled ? "text-gray-400" : "text-gray-600"}`}>{(tx as any).accounts?.name || "-"}</td>
+                      <td className={`py-3 text-sm ${tx.reconciled ? "text-gray-400" : "text-gray-600"}`}>{(tx as any).categories?.name || "-"}</td>
+                      <td className={`py-3 font-semibold text-right ${Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {Number(tx.amount) >= 0 ? "+" : ""}${Number(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-3 text-center flex gap-2 justify-end">
