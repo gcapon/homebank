@@ -2,13 +2,18 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import type { Budget, Category } from "@/types";
+import type { Category, Budget } from "@/types";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function BudgetsPage() {
-  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ category_id: "", amount: 0, month: "" });
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
+  const [editingCell, setEditingCell] = useState<{ categoryId: string; month: string } | null>(null);
+  const [cellValue, setCellValue] = useState("");
+  const [saving, setSaving] = useState(false);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
   useEffect(() => {
@@ -21,128 +26,241 @@ export default function BudgetsPage() {
 
   async function fetchData() {
     if (!supabaseRef.current) return;
-    const [budgetResult, catResult] = await Promise.all([
-      supabaseRef.current.from("budgets").select("*, categories(name)").order("month", { ascending: false }),
+    const [catResult, budgetResult] = await Promise.all([
       supabaseRef.current.from("categories").select("*").order("name"),
+      supabaseRef.current.from("budgets").select("*"),
     ]);
-    if (budgetResult.data) setBudgets(budgetResult.data);
     if (catResult.data) setCategories(catResult.data);
+    if (budgetResult.data) setBudgets(budgetResult.data);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function saveBudget(categoryId: string, month: string, amount: number) {
     if (!supabaseRef.current) return;
-    const now = new Date();
-    const month = formData.month || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    await supabaseRef.current.from("budgets").insert({ category_id: formData.category_id, amount: formData.amount, month });
-    setFormData({ category_id: "", amount: 0, month: "" });
-    setShowForm(false);
-    fetchData();
-  }
+    const existing = budgets.find((b) => b.category_id === categoryId && b.month === month);
 
-  async function handleDelete(id: string) {
-    if (!supabaseRef.current) return;
-    if (confirm("Delete this budget?")) {
-      await supabaseRef.current.from("budgets").delete().eq("id", id);
-      fetchData();
+    if (existing) {
+      await supabaseRef.current.from("budgets").update({ amount }).eq("id", existing.id);
+      setBudgets((prev) => prev.map((b) => b.id === existing.id ? { ...b, amount } : b));
+    } else {
+      const { data } = await supabaseRef.current.from("budgets").insert({ category_id: categoryId, amount, month }).select().single();
+      if (data) setBudgets((prev) => [...prev, data]);
     }
+    setEditingCell(null);
+  }
+
+  async function copyToMonths(categoryId: string, fromMonth: string, amount: number, targetMonths: string[]) {
+    if (!supabaseRef.current) return;
+    setSaving(true);
+    for (const m of targetMonths) {
+      const monthStr = `${selectedYear}-${String(m + 1).padStart(2, "0")}`;
+      const existing = budgets.find((b) => b.category_id === categoryId && b.month === monthStr);
+      if (existing) {
+        await supabaseRef.current.from("budgets").update({ amount }).eq("id", existing.id);
+        setBudgets((prev) => prev.map((b) => b.id === existing.id ? { ...b, amount } : b));
+      } else {
+        const { data } = await supabaseRef.current.from("budgets").insert({ category_id: categoryId, amount, month: monthStr }).select().single();
+        if (data) setBudgets((prev) => [...prev, data]);
+      }
+    }
+    setSaving(false);
+  }
+
+  function startEdit(categoryId: string, month: string, currentValue: number) {
+    setEditingCell({ categoryId, month });
+    setCellValue(currentValue > 0 ? String(currentValue) : "");
+  }
+
+  function cancelEdit() {
+    setEditingCell(null);
+    setCellValue("");
+  }
+
+  function getBudget(categoryId: string, month: string): number {
+    const budget = budgets.find((b) => b.category_id === categoryId && b.month === month);
+    return budget ? Number(budget.amount) : 0;
+  }
+
+  function getMonthKey(monthIndex: number): string {
+    return `${selectedYear}-${String(monthIndex + 1).padStart(2, "0")}`;
+  }
+
+  function toggleMonth(m: number) {
+    setSelectedMonths((prev) =>
+      prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m].sort((a, b) => a - b)
+    );
+  }
+
+  function selectAllMonths() {
+    setSelectedMonths([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  }
+
+  function clearMonths() {
+    setSelectedMonths([]);
   }
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
+  const displayMonths = selectedMonths.length > 0 ? selectedMonths : [new Date().getMonth()];
+
+  const years = [new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">Budgets</h2>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
-        >
-          {showForm ? "Cancel" : "+ Set Budget"}
-        </button>
-      </div>
-
-      {showForm && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select
-                  value={formData.category_id}
-                  onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                >
-                  <option value="">Select Category</option>
-                  {expenseCategories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Budget Amount</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="500.00"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
-                <input
-                  type="month"
-                  value={formData.month}
-                  onChange={(e) => setFormData({ ...formData, month: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
+        <h2 className="text-2xl font-bold text-gray-800">📊 Budget Planner</h2>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-600">Year</label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="flex gap-2 mb-1">
+              <button onClick={selectAllMonths} className="text-xs text-blue-600 hover:text-blue-700">All</button>
+              <button onClick={clearMonths} className="text-xs text-gray-500 hover:text-gray-700">Clear</button>
             </div>
-            <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
-              Create Budget
-            </button>
-          </form>
-        </div>
-      )}
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="p-6">
-          {budgets.length > 0 ? (
-            <div className="space-y-4">
-              {budgets.map((budget) => (
-                <div key={budget.id} className="p-4 bg-gray-50 rounded-lg border border-gray-100 relative">
-                  <button
-                    onClick={() => handleDelete(budget.id)}
-                    className="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition"
-                  >
-                    ✕
-                  </button>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-gray-800">{(budget as any).categories?.name || "Unknown"}</span>
-                    <span className="text-sm text-gray-500">{budget.month}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xl font-bold text-blue-600">
-                      ${Number(budget.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                    </span>
-                    <span className="text-sm text-gray-500">monthly budget</span>
-                  </div>
-                </div>
+            <div className="flex flex-wrap gap-1 max-w-lg">
+              {MONTHS.map((m, i) => (
+                <button
+                  key={i}
+                  onClick={() => toggleMonth(i)}
+                  className={`text-xs px-2 py-1 rounded transition ${
+                    displayMonths.includes(i) ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  }`}
+                >
+                  {m}
+                </button>
               ))}
             </div>
-          ) : (
-            <div className="text-center py-12 text-gray-400">
-              <p className="text-4xl mb-2">📊</p>
-              <p>No budgets set yet.</p>
-            </div>
-          )}
+          </div>
         </div>
       </div>
+
+      {/* Budget Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700 sticky left-0 bg-gray-50 z-10 min-w-48">
+                  Category
+                </th>
+                {displayMonths.map((m) => (
+                  <th key={m} className="px-4 py-3 text-sm font-semibold text-gray-700 text-center min-w-28">
+                    <div className="flex flex-col items-center gap-1">
+                      <span>{MONTHS[m]}</span>
+                      {displayMonths.length > 1 && (
+                        <button
+                          onClick={() => {
+                            const amount = getBudget(expenseCategories[0]?.id, getMonthKey(m));
+                            const firstWithValue = expenseCategories.find((c) => getBudget(c.id, getMonthKey(m)) > 0);
+                            const amt = firstWithValue ? getBudget(firstWithValue.id, getMonthKey(m)) : 0;
+                            const targets = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x));
+                            expenseCategories.forEach((c) => {
+                              const v = getBudget(c.id, getMonthKey(m));
+                              if (v > 0) copyToMonths(c.id, getMonthKey(m), v, targets);
+                            });
+                          }}
+                          className="text-xs text-blue-400 hover:text-blue-600"
+                          title="Copy all values from this column to other selected months"
+                        >
+                          ↔
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {expenseCategories.length > 0 ? (
+                expenseCategories.map((cat) => (
+                  <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-800 sticky left-0 bg-white z-10">
+                      {cat.name}
+                    </td>
+                    {displayMonths.map((m) => {
+                      const monthKey = getMonthKey(m);
+                      const budget = getBudget(cat.id, monthKey);
+                      const isEditing = editingCell?.categoryId === cat.id && editingCell?.month === monthKey;
+
+                      return (
+                        <td key={m} className="px-4 py-3 text-center">
+                          {isEditing ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={cellValue}
+                                onChange={(e) => setCellValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0);
+                                  if (e.key === "Escape") cancelEdit();
+                                }}
+                                autoFocus
+                                className="w-24 px-2 py-1 border border-blue-400 rounded text-center text-sm"
+                              />
+                              <button
+                                onClick={() => saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0)}
+                                className="text-green-600 hover:text-green-700 text-xs"
+                              >
+                                ✓
+                              </button>
+                              <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() => startEdit(cat.id, monthKey, budget)}
+                              className="cursor-pointer hover:bg-blue-50 rounded py-1"
+                            >
+                              {budget > 0 ? (
+                                <div>
+                                  <span className="font-semibold text-gray-700">${budget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                  {displayMonths.length > 1 && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const targets = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x));
+                                        copyToMonths(cat.id, monthKey, budget, targets);
+                                      }}
+                                      className="ml-1 text-xs text-blue-400 hover:text-blue-600"
+                                      title="Copy to other months"
+                                    >
+                                      ↔
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-300 text-lg">+</span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={displayMonths.length + 1} className="px-4 py-12 text-center text-gray-400">
+                    No expense categories yet. <a href="/categories" className="text-blue-600 hover:text-blue-700">Add some →</a>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p className="text-xs text-gray-400 text-center">
+        💡 Click any cell to edit. Use ↔ to copy a value to all selected months. Years and months are filtered above.
+      </p>
     </div>
   );
 }
