@@ -26,6 +26,7 @@ export default function RootLayout({
                 <a href="/budgets" className="hover:text-blue-200 transition">Budgets</a>
                 <a href="/reports" className="hover:text-blue-200 transition">Reports</a>
                 <a href="/import" className="hover:text-blue-200 transition">Import</a>
+                <a href="/scheduled" className="hover:text-blue-200 transition">Scheduled</a>
               </nav>
             </div>
           </header>

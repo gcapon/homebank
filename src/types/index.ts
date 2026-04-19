@@ -39,6 +39,29 @@ export interface Budget {
   updated_at: string;
 }
 
+export interface ScheduledTransaction {
+  id: string;
+  account_id: string;
+  category_id: string | null;
+  description: string;
+  amount: number;
+  memo: string;
+  frequency: string;
+  interval_count: number;
+  day_of_week: number | null;
+  day_of_month: number | null;
+  week_of_month: number | null;
+  weekend_action: string;
+  next_date: string;
+  max_posts: number | null;
+  post_count: number;
+  auto_post: boolean;
+  active: boolean;
+  last_posted: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TransactionWithCategory extends Transaction {
   category_name?: string;
   account_name?: string;

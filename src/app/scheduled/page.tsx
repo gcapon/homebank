@@ -1,0 +1,324 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import type { Account, Category, ScheduledTransaction } from "@/types";
+
+const FREQUENCIES = ["daily", "weekly", "monthly", "yearly"];
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKEND_ACTIONS = [
+  { value: "possible", label: "Don't care" },
+  { value: "before", label: "Move to Friday" },
+  { value: "after", label: "Move to Monday" },
+];
+
+export default function ScheduledPage() {
+  const [items, setItems] = useState<(ScheduledTransaction & { accounts?: { name: string }; categories?: { name: string } })[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const supabase = createSupabaseClient();
+
+  const [form, setForm] = useState({
+    account_id: "",
+    category_id: "",
+    description: "",
+    amount: "",
+    memo: "",
+    frequency: "monthly",
+    interval_count: "1",
+    day_of_week: "",
+    day_of_month: "",
+    week_of_month: "",
+    weekend_action: "possible",
+    next_date: "",
+    max_posts: "",
+    auto_post: false,
+  });
+
+  useEffect(() => { fetchData(); }, []);
+
+  async function fetchData() {
+    const [schedRes, acctRes, catRes] = await Promise.all([
+      supabase.from("scheduled_transactions").select("*, accounts(name), categories(name)").order("next_date"),
+      supabase.from("accounts").select("*").order("name"),
+      supabase.from("categories").select("*").order("name"),
+    ]);
+    if (schedRes.data) setItems(schedRes.data);
+    if (acctRes.data) setAccounts(acctRes.data);
+    if (catRes.data) setCategories(catRes.data);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const payload = {
+      account_id: form.account_id,
+      category_id: form.category_id || null,
+      description: form.description,
+      amount: parseFloat(form.amount),
+      memo: form.memo,
+      frequency: form.frequency,
+      interval_count: parseInt(form.interval_count) || 1,
+      day_of_week: form.day_of_week !== "" ? parseInt(form.day_of_week) : null,
+      day_of_month: form.day_of_month !== "" ? parseInt(form.day_of_month) : null,
+      week_of_month: form.week_of_month !== "" ? parseInt(form.week_of_month) : null,
+      weekend_action: form.weekend_action,
+      next_date: form.next_date,
+      max_posts: form.max_posts ? parseInt(form.max_posts) : null,
+      auto_post: form.auto_post,
+    };
+
+    if (editingId) {
+      await supabase.from("scheduled_transactions").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editingId);
+    } else {
+      await supabase.from("scheduled_transactions").insert(payload);
+    }
+    resetForm();
+    fetchData();
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this scheduled transaction?")) return;
+    await supabase.from("scheduled_transactions").delete().eq("id", id);
+    fetchData();
+  }
+
+  async function handlePost(id: string) {
+    const res = await fetch("/api/scheduled", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "post", id }),
+    });
+    if (res.ok) fetchData();
+  }
+
+  async function handleSkip(id: string) {
+    const res = await fetch("/api/scheduled", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "skip", id }),
+    });
+    if (res.ok) fetchData();
+  }
+
+  function startEdit(item: typeof items[0]) {
+    setEditingId(item.id);
+    setForm({
+      account_id: item.account_id || "",
+      category_id: item.category_id || "",
+      description: item.description || "",
+      amount: String(Math.abs(item.amount)),
+      memo: item.memo || "",
+      frequency: item.frequency || "monthly",
+      interval_count: String(item.interval_count || 1),
+      day_of_week: item.day_of_week != null ? String(item.day_of_week) : "",
+      day_of_month: item.day_of_month != null ? String(item.day_of_month) : "",
+      week_of_month: item.week_of_month != null ? String(item.week_of_month) : "",
+      weekend_action: item.weekend_action || "possible",
+      next_date: item.next_date || "",
+      max_posts: item.max_posts ? String(item.max_posts) : "",
+      auto_post: item.auto_post || false,
+    });
+    setShowForm(true);
+  }
+
+  function resetForm() {
+    setShowForm(false);
+    setEditingId(null);
+    setForm({ account_id: "", category_id: "", description: "", amount: "", memo: "", frequency: "monthly", interval_count: "1", day_of_week: "", day_of_month: "", week_of_month: "", weekend_action: "possible", next_date: "", max_posts: "", auto_post: false });
+  }
+
+  function isDue(item: typeof items[0]) {
+    const today = new Date().toISOString().split("T")[0];
+    return item.active && item.next_date <= today;
+  }
+
+  function frequencyLabel(item: typeof items[0]) {
+    const int = item.interval_count || 1;
+    const unit = item.frequency === "daily" ? "day" : item.frequency === "weekly" ? "week" : item.frequency === "monthly" ? "month" : "year";
+    if (item.frequency === "monthly" && item.week_of_month != null && item.day_of_week != null) {
+      const ordinal = ["1st", "2nd", "3rd", "4th", "5th"][item.week_of_month - 1];
+      return `Every ${ordinal} ${WEEKDAYS[item.day_of_week]}`;
+    }
+    if (item.frequency === "monthly" && item.day_of_month != null) {
+      return `Monthly on day ${item.day_of_month}`;
+    }
+    return `Every ${int} ${int === 1 ? unit : unit + "s"}`;
+  }
+
+  const today = new Date().toISOString().split("T")[0];
+  const dueItems = items.filter((i) => isDue(i));
+  const upcomingItems = items.filter((i) => !isDue(i) && i.active);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-800">🔄 Scheduled Transactions</h2>
+        <button onClick={() => { resetForm(); setShowForm(!showForm); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          {showForm ? "Cancel" : "+ New Scheduled"}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h3 className="text-lg font-semibold mb-4">{editingId ? "Edit Scheduled Transaction" : "New Scheduled Transaction"}</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Account *</label>
+                <select required value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <option value="">Select account</option>
+                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Category</label>
+                <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  <option value="">None</option>
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.type})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Description *</label>
+                <input required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Amount *</label>
+                <input required type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Frequency</label>
+                <select value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  {FREQUENCIES.map((f) => <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Every X</label>
+                <input type="number" min="1" value={form.interval_count} onChange={(e) => setForm({ ...form, interval_count: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Weekend handling</label>
+                <select value={form.weekend_action} onChange={(e) => setForm({ ...form, weekend_action: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500">
+                  {WEEKEND_ACTIONS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {form.frequency === "monthly" && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Day of month (1-31)</label>
+                  <input type="number" min="1" max="31" value={form.day_of_month} onChange={(e) => setForm({ ...form, day_of_month: e.target.value })} placeholder="e.g., 15 for 15th" className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Week # (1st, 2nd...)</label>
+                    <input type="number" min="1" max="5" value={form.week_of_month} onChange={(e) => setForm({ ...form, week_of_month: e.target.value })} placeholder="1-5" className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Weekday</label>
+                    <select value={form.day_of_week} onChange={(e) => setForm({ ...form, day_of_week: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500">
+                      <option value="">Pick...</option>
+                      {WEEKDAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Next occurrence *</label>
+                <input required type="date" value={form.next_date} onChange={(e) => setForm({ ...form, next_date: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Max posts (blank = unlimited)</label>
+                <input type="number" min="1" value={form.max_posts} onChange={(e) => setForm({ ...form, max_posts: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="flex items-center pt-5">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.auto_post} onChange={(e) => setForm({ ...form, auto_post: e.target.checked })} className="w-4 h-4 text-blue-600 rounded" />
+                  <span className="text-sm text-gray-700">Auto-post when due</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">{editingId ? "Update" : "Create"}</button>
+              <button type="button" onClick={resetForm} className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {dueItems.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <h3 className="font-bold text-red-700 mb-3">⚠️ Due Now ({dueItems.length})</h3>
+          <div className="space-y-2">
+            {dueItems.map((item) => (
+              <div key={item.id} className="flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm">
+                <div className="flex-1 grid grid-cols-4 gap-4 items-center">
+                  <div>
+                    <div className="font-medium text-gray-800">{item.description}</div>
+                    <div className="text-xs text-gray-500">{item.accounts?.name}</div>
+                  </div>
+                  <div className="text-right font-semibold text-gray-700">${Math.abs(Number(item.amount)).toFixed(2)}</div>
+                  <div className="text-xs text-gray-500">{frequencyLabel(item)}</div>
+                  <div className="text-xs text-red-500">Due: {item.next_date}</div>
+                </div>
+                <div className="flex gap-2 ml-4">
+                  <button onClick={() => handlePost(item.id)} className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">Post</button>
+                  <button onClick={() => handleSkip(item.id)} className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded hover:bg-gray-200">Skip</button>
+                  <button onClick={() => startEdit(item)} className="px-3 py-1 bg-blue-50 text-blue-600 text-sm rounded hover:bg-blue-100">Edit</button>
+                  <button onClick={() => handleDelete(item.id)} className="px-3 py-1 bg-red-50 text-red-600 text-sm rounded hover:bg-red-100">✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <h3 className="text-lg font-semibold text-gray-700 mb-3">All Scheduled ({items.length})</h3>
+        {items.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            No scheduled transactions yet.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {items.map((item) => (
+              <div key={item.id} className={`flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border-l-4 ${isDue(item) ? "border-red-400" : item.active ? "border-green-400" : "border-gray-300"}`}>
+                <div className="flex-1 grid grid-cols-5 gap-4 items-center">
+                  <div>
+                    <div className="font-medium text-gray-800">{item.description}</div>
+                    <div className="text-xs text-gray-500">{item.accounts?.name}{item.categories ? ` → ${item.categories.name}` : ""}</div>
+                  </div>
+                  <div className="text-right font-semibold text-gray-700">${Math.abs(Number(item.amount)).toFixed(2)}</div>
+                  <div className="text-xs text-gray-500">{frequencyLabel(item)}</div>
+                  <div className={`text-xs ${isDue(item) ? "text-red-600 font-medium" : "text-gray-500"}`}>
+                    {isDue(item) ? "⚠️ Due now" : `Next: ${item.next_date}`}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {item.auto_post ? "🔁 Auto" : "👆 Manual"} · {item.post_count} posted
+                    {item.max_posts ? ` / ${item.max_posts}` : ""}
+                  </div>
+                </div>
+                <div className="flex gap-2 ml-4">
+                  {item.active && !isDue(item) && (
+                    <button onClick={() => handlePost(item.id)} className="px-3 py-1 bg-green-50 text-green-600 text-sm rounded hover:bg-green-100">Post Now</button>
+                  )}
+                  <button onClick={() => startEdit(item)} className="px-3 py-1 bg-blue-50 text-blue-600 text-sm rounded hover:bg-blue-100">Edit</button>
+                  <button onClick={() => handleDelete(item.id)} className="px-3 py-1 bg-red-50 text-red-600 text-sm rounded hover:bg-red-100">✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
