@@ -18,6 +18,7 @@ export interface Transaction {
   amount: number;
   date: string;
   reconciled: boolean;
+  transfer_id: string | null;
   created_at: string;
   updated_at: string;
 }
