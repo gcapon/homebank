@@ -54,6 +54,7 @@ export interface ScheduledTransaction {
   day_of_month: number | null;
   week_of_month: number | null;
   weekend_action: string;
+  to_account_id: string | null;
   next_date: string;
   max_posts: number | null;
   post_count: number;

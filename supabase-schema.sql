@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS scheduled_transactions (
   description TEXT NOT NULL DEFAULT '',
   amount DECIMAL(15,2) NOT NULL,
   memo TEXT DEFAULT '',
+  to_account_id UUID REFERENCES accounts(id) ON DELETE CASCADE,
   frequency TEXT NOT NULL DEFAULT 'monthly', -- daily, weekly, monthly, yearly
   interval_count INTEGER NOT NULL DEFAULT 1,  -- every X frequency units
   day_of_week INTEGER,                        -- 0=Sun, 1=Mon, ... 6=Sat (for weekly)

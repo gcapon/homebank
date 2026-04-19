@@ -18,11 +18,13 @@ export default function ScheduledPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [schedType, setSchedType] = useState<"expense" | "income" | "transfer">("expense");
   const [daysFilter, setDaysFilter] = useState<number>(60);
   const supabase = createSupabaseClient();
 
   const [form, setForm] = useState({
     account_id: "",
+    to_account_id: "",
     category_id: "",
     description: "",
     amount: "",
@@ -53,11 +55,16 @@ export default function ScheduledPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    let amount = parseFloat(form.amount);
+    if (schedType === "expense") amount = -Math.abs(amount);
+    else amount = Math.abs(amount);
+
     const payload = {
       account_id: form.account_id,
-      category_id: form.category_id || null,
+      to_account_id: schedType === "transfer" ? form.to_account_id : null,
+      category_id: schedType !== "transfer" ? (form.category_id || null) : null,
       description: form.description,
-      amount: parseFloat(form.amount),
+      amount,
       memo: form.memo,
       frequency: form.frequency,
       interval_count: parseInt(form.interval_count) || 1,
@@ -77,6 +84,13 @@ export default function ScheduledPage() {
     }
     resetForm();
     fetchData();
+  }
+
+  function resetForm() {
+    setShowForm(false);
+    setEditingId(null);
+    setSchedType("expense");
+    setForm({ account_id: "", to_account_id: "", category_id: "", description: "", amount: "", memo: "", frequency: "monthly", interval_count: "1", day_of_week: "", day_of_month: "", week_of_month: "", weekend_action: "possible", next_date: "", max_posts: "", auto_post: false });
   }
 
   async function handleDelete(id: string) {
@@ -143,8 +157,11 @@ export default function ScheduledPage() {
 
   function startEdit(item: typeof items[0]) {
     setEditingId(item.id);
+    const isTransfer = !!item.to_account_id;
+    setSchedType(isTransfer ? "transfer" : Number(item.amount) < 0 ? "expense" : "income");
     setForm({
       account_id: item.account_id || "",
+      to_account_id: item.to_account_id || "",
       category_id: item.category_id || "",
       description: item.description || "",
       amount: String(Math.abs(item.amount)),
@@ -162,11 +179,6 @@ export default function ScheduledPage() {
     setShowForm(true);
   }
 
-  function resetForm() {
-    setShowForm(false);
-    setEditingId(null);
-    setForm({ account_id: "", category_id: "", description: "", amount: "", memo: "", frequency: "monthly", interval_count: "1", day_of_week: "", day_of_month: "", week_of_month: "", weekend_action: "possible", next_date: "", max_posts: "", auto_post: false });
-  }
 
   function isDue(item: typeof items[0]) {
     const today = new Date().toISOString().split("T")[0];
@@ -288,21 +300,53 @@ export default function ScheduledPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
           <h3 className="text-lg font-semibold mb-4">{editingId ? "Edit Scheduled Transaction" : "New Scheduled Transaction"}</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Type selector */}
+            <div className="flex gap-2 mb-2">
+              {(["expense", "income", "transfer"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setSchedType(t)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                    schedType === t
+                      ? t === "expense" ? "bg-red-100 text-red-700 border-2 border-red-300"
+                        : t === "income" ? "bg-green-100 text-green-700 border-2 border-green-300"
+                        : "bg-blue-100 text-blue-700 border-2 border-blue-300"
+                      : "bg-gray-50 text-gray-600 border-2 border-transparent hover:bg-gray-100"
+                  }`}
+                >
+                  {t === "expense" ? "💸 Expense" : t === "income" ? "💰 Income" : "↔️ Transfer/Payment"}
+                </button>
+              ))}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Account *</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  {schedType === "transfer" ? "From Account *" : "Account *"}
+                </label>
                 <select required value={form.account_id} onChange={(e) => setForm({ ...form, account_id: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500">
                   <option value="">Select account</option>
                   {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Category</label>
-                <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500">
-                  <option value="">None</option>
-                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.type})</option>)}
-                </select>
-              </div>
+              {schedType === "transfer" ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">To Account *</label>
+                  <select required value={form.to_account_id} onChange={(e) => setForm({ ...form, to_account_id: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select account</option>
+                    {accounts.filter((a) => a.id !== form.account_id).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Category {schedType === "income" ? "(optional)" : ""}</label>
+                  <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">{schedType === "income" ? "No category (income)" : "None"}</option>
+                    {categories.filter((c) => schedType === "income" ? c.type === "income" : c.type === "expense").map((c) => <option key={c.id} value={c.id}>{c.name} ({c.type})</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">Description *</label>
                 <input required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500" />

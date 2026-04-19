@@ -33,24 +33,59 @@ export async function POST(req: Request) {
     const s = sched.data;
 
     if (action === "post") {
-      // Create the actual transaction
-      const { error: txError } = await supabase.from("transactions").insert({
-        account_id: s.account_id,
-        category_id: s.category_id,
-        description: s.description,
-        amount: s.amount,
-        date: new Date().toISOString().split("T")[0],
-      });
+      if (s.to_account_id) {
+        // It's a transfer — create both sides
+        const absAmount = Math.abs(Number(s.amount));
+        const fromAmount = -absAmount;
 
-      if (txError) return NextResponse.json({ error: txError.message }, { status: 500 });
+        const { data: toAcct, error: toAcctErr } = await supabase
+          .from("accounts").select("id, name, type, balance").eq("id", s.to_account_id).single();
+        if (toAcctErr || !toAcct) return NextResponse.json({ error: "To account not found" }, { status: 404 });
 
-      // Update account balance
-      const newBalance = Number(s.accounts?.balance ?? 0) + Number(s.amount);
-      const { error: balError } = await supabase
-        .from("accounts")
-        .update({ balance: newBalance })
-        .eq("id", s.account_id);
-      if (balError) return NextResponse.json({ error: "Balance update failed: " + balError.message }, { status: 500 });
+        const transferId = crypto.randomUUID();
+
+        // Insert from transaction
+        const { error: tx1Err } = await supabase.from("transactions").insert({
+          account_id: s.account_id,
+          description: `${s.description} → ${toAcct.name}`,
+          amount: fromAmount,
+          date: new Date().toISOString().split("T")[0],
+          transfer_id: transferId,
+        });
+        if (tx1Err) return NextResponse.json({ error: "Failed to create from transaction: " + tx1Err.message }, { status: 500 });
+
+        // Insert to transaction
+        const toAmount = toAcct.type === "credit" ? absAmount : absAmount;
+        const { error: tx2Err } = await supabase.from("transactions").insert({
+          account_id: s.to_account_id,
+          description: `${s.description} ← ${s.accounts?.name}`,
+          amount: toAmount,
+          date: new Date().toISOString().split("T")[0],
+          transfer_id: transferId,
+        });
+        if (tx2Err) return NextResponse.json({ error: "Failed to create to transaction: " + tx2Err.message }, { status: 500 });
+
+        // Update both account balances
+        const newFromBalance = Number(s.accounts?.balance ?? 0) + fromAmount;
+        const newToBalance = Number(toAcct.balance) + toAmount;
+        await supabase.from("accounts").update({ balance: newFromBalance }).eq("id", s.account_id);
+        await supabase.from("accounts").update({ balance: newToBalance }).eq("id", s.to_account_id);
+      } else {
+        // Regular single transaction
+        const { error: txError } = await supabase.from("transactions").insert({
+          account_id: s.account_id,
+          category_id: s.category_id,
+          description: s.description,
+          amount: s.amount,
+          date: new Date().toISOString().split("T")[0],
+        });
+        if (txError) return NextResponse.json({ error: txError.message }, { status: 500 });
+
+        const newBalance = Number(s.accounts?.balance ?? 0) + Number(s.amount);
+        const { error: balError } = await supabase
+          .from("accounts").update({ balance: newBalance }).eq("id", s.account_id);
+        if (balError) return NextResponse.json({ error: "Balance update failed: " + balError.message }, { status: 500 });
+      }
     }
 
     // Advance to next date — if occurrence_date provided, advance from there (not from next_date)
