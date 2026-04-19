@@ -152,8 +152,11 @@ export default function TransactionsPage() {
 
   async function handleReconcile(id: string, reconciled: boolean) {
     if (!supabaseRef.current) return;
+    // Optimistic update — update local state immediately, no refetch
+    setTransactions((prev) =>
+      prev.map((tx) => (tx.id === id ? { ...tx, reconciled } : tx))
+    );
     await supabaseRef.current.from("transactions").update({ reconciled }).eq("id", id);
-    fetchData();
   }
 
   const filteredTransactions = selectedAccountId
@@ -292,7 +295,7 @@ export default function TransactionsPage() {
                 </thead>
                 <tbody>
                   {filteredTransactions.map((tx) => (
-                    <tr key={tx.id} className={`border-b border-gray-50 last:border-0 ${tx.reconciled ? "opacity-60" : ""}`}>
+                    <tr key={tx.id} className={`border-b border-gray-50 last:border-0 ${tx.reconciled ? "opacity-50" : ""}`}>
                       <td className="py-3">
                         <input
                           type="checkbox"
@@ -302,10 +305,10 @@ export default function TransactionsPage() {
                           title={tx.reconciled ? "Reconciled — click to unmark" : "Mark as reconciled"}
                         />
                       </td>
-                      <td className={`py-3 text-sm ${tx.reconciled ? "text-gray-400" : "text-gray-600"}`}>{tx.date}</td>
-                      <td className={`py-3 font-medium ${tx.reconciled ? "text-gray-400" : "text-gray-800"}`}>{tx.description}</td>
-                      <td className={`py-3 text-sm ${tx.reconciled ? "text-gray-400" : "text-gray-600"}`}>{(tx as any).accounts?.name || "-"}</td>
-                      <td className={`py-3 text-sm ${tx.reconciled ? "text-gray-400" : "text-gray-600"}`}>{(tx as any).categories?.name || "-"}</td>
+                      <td className="py-3 text-sm text-gray-600">{tx.date}</td>
+                      <td className="py-3 font-medium text-gray-800">{tx.description}</td>
+                      <td className="py-3 text-sm text-gray-600">{(tx as any).accounts?.name || "-"}</td>
+                      <td className="py-3 text-sm text-gray-600">{(tx as any).categories?.name || "-"}</td>
                       <td className={`py-3 font-semibold text-right ${Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {Number(tx.amount) >= 0 ? "+" : ""}${Number(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                       </td>
