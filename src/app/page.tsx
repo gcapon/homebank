@@ -37,7 +37,7 @@ export default async function HomePage() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
         <a
-          href="/transactions/new"
+          href="/transactions"
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
         >
           + Add Transaction
@@ -74,21 +74,21 @@ export default async function HomePage() {
       {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <a
-          href="/accounts/new"
+          href="/accounts"
           className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2"
         >
           <span className="text-2xl">🏦</span>
           <span className="text-sm font-medium text-gray-700">Add Account</span>
         </a>
         <a
-          href="/categories/new"
+          href="/categories"
           className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2"
         >
           <span className="text-2xl">🏷️</span>
           <span className="text-sm font-medium text-gray-700">Add Category</span>
         </a>
         <a
-          href="/budgets/new"
+          href="/budgets"
           className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2"
         >
           <span className="text-2xl">📊</span>
@@ -132,7 +132,7 @@ export default async function HomePage() {
             <div className="text-center py-8 text-gray-400">
               <p className="text-4xl mb-2">💸</p>
               <p>No transactions yet. Add your first one!</p>
-              <a href="/transactions/new" className="text-blue-600 hover:text-blue-700 mt-2 inline-block">
+              <a href="/transactions" className="text-blue-600 hover:text-blue-700 mt-2 inline-block">
                 + Add Transaction
               </a>
             </div>
