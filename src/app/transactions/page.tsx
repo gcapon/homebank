@@ -10,12 +10,18 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  const defaultDate = `${yyyy}-${mm}-${dd}`;
+
   const [formData, setFormData] = useState({
     account_id: "",
     category_id: "",
     description: "",
     amount: 0,
-    date: new Date().toISOString().split("T")[0],
+    date: defaultDate,
   });
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
@@ -105,7 +111,7 @@ export default function TransactionsPage() {
       }
     }
 
-    setFormData({ account_id: "", category_id: "", description: "", amount: 0, date: new Date().toISOString().split("T")[0] });
+    setFormData({ account_id: "", category_id: "", description: "", amount: 0, date: defaultDate });
     setShowForm(false);
     fetchData();
   }
@@ -124,7 +130,7 @@ export default function TransactionsPage() {
 
   function cancelEdit() {
     setEditingId(null);
-    setFormData({ account_id: "", category_id: "", description: "", amount: 0, date: new Date().toISOString().split("T")[0] });
+    setFormData({ account_id: "", category_id: "", description: "", amount: 0, date: defaultDate });
     setShowForm(false);
   }
 
