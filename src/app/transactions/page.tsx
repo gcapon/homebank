@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import type { Transaction, Account, Category } from "@/types";
 
@@ -314,37 +314,20 @@ export default function TransactionsPage() {
     ? transactions.filter((tx) => tx.account_id === selectedAccountId)
     : transactions;
 
-  // Compute running balance for the selected account (date ascending for accumulation)
+  // Compute running balance map for the selected account (inline, recalculates on every render)
   const selectedAccount = selectedAccountId ? accounts.find((a) => a.id === selectedAccountId) : null;
-  const runningBalanceMap = useMemo(() => {
+  const runningBalanceMap = (() => {
     if (!selectedAccountId || !selectedAccount) return new Map<string, number>();
     const sorted = [...filteredTransactions].sort((a, b) => {
-      const date_cmp = a.date.localeCompare(b.date);
-      if (date_cmp !== 0) return date_cmp;
-      const ca = (a as any).created_at || a.id;
-      const cb = (b as any).created_at || b.id;
-      return ca.localeCompare(cb);
+      const dc = a.date.localeCompare(b.date);
+      if (dc !== 0) return dc;
+      return ((a as any).created_at || a.id).localeCompare((b as any).created_at || b.id);
     });
-    console.log("[DEBUG]", { selectedAccountId, opening: selectedAccount.opening_balance, txCount: filteredTransactions.length, sortedCount: sorted.length });
-    let running = Number(selectedAccount.opening_balance);
-    const map = new Map<string, number>();
-    for (const tx of sorted) {
-      running += Number(tx.amount);
-      map.set(tx.id, running);
-    }
-    const dateGroups: Record<string, typeof sorted> = {};
-    for (const tx of sorted) {
-      if (!dateGroups[tx.date]) dateGroups[tx.date] = [];
-      dateGroups[tx.date].push(tx);
-    }
-    const debugDate = Object.keys(dateGroups).find((d) => dateGroups[d].length > 1);
-    if (debugDate) {
-      console.log("[DEBUG same-day]", { mapSize: map.size, firstKey: [...map.keys()][0]?.slice(0, 8), firstVal: map.values().next().value }, JSON.stringify(dateGroups[debugDate].map((t) => ({
-        id: t.id.slice(0, 8), date: t.date, created_at: (t as any).created_at, amount: t.amount, running: map.get(t.id)
-      })), null, 2));
-    }
-    return map;
-  }, [filteredTransactions, selectedAccountId, selectedAccount]);
+    let r = Number(selectedAccount.opening_balance || 0);
+    const m = new Map<string, number>();
+    for (const tx of sorted) { r += Number(tx.amount); m.set(tx.id, r); }
+    return m;
+  })();
 
   return (
     <div className="space-y-6">
