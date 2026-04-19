@@ -321,18 +321,17 @@ export default function TransactionsPage() {
     const sorted = [...filteredTransactions].sort((a, b) => {
       const date_cmp = a.date.localeCompare(b.date);
       if (date_cmp !== 0) return date_cmp;
-      // Same date: created_at should be the tiebreaker — fall back to id if missing
       const ca = (a as any).created_at || a.id;
       const cb = (b as any).created_at || b.id;
       return ca.localeCompare(cb);
     });
+    console.log("[DEBUG]", { selectedAccountId, opening: selectedAccount.opening_balance, txCount: filteredTransactions.length, sortedCount: sorted.length });
     let running = Number(selectedAccount.opening_balance);
     const map = new Map<string, number>();
     for (const tx of sorted) {
       running += Number(tx.amount);
       map.set(tx.id, running);
     }
-    // DEBUG same-day sort
     const dateGroups: Record<string, typeof sorted> = {};
     for (const tx of sorted) {
       if (!dateGroups[tx.date]) dateGroups[tx.date] = [];
@@ -340,12 +339,8 @@ export default function TransactionsPage() {
     }
     const debugDate = Object.keys(dateGroups).find((d) => dateGroups[d].length > 1);
     if (debugDate) {
-      console.log("[DEBUG same-day sort]", JSON.stringify(dateGroups[debugDate].map((t) => ({
-        id: t.id.slice(0, 8),
-        date: t.date,
-        created_at: (t as any).created_at,
-        amount: t.amount,
-        running: map.get(t.id)
+      console.log("[DEBUG same-day]", { mapSize: map.size, firstKey: [...map.keys()][0]?.slice(0, 8), firstVal: map.values().next().value }, JSON.stringify(dateGroups[debugDate].map((t) => ({
+        id: t.id.slice(0, 8), date: t.date, created_at: (t as any).created_at, amount: t.amount, running: map.get(t.id)
       })), null, 2));
     }
     return map;
