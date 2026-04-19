@@ -125,7 +125,7 @@ export default function BudgetsPage() {
     setSelectedMonths([]);
   }
 
-  const expenseCategories = categories.filter((c) => c.type === "expense");
+  const allCategories = categories.filter((c) => c.type === "expense" || c.type === "income");
   const displayMonths = selectedMonths.length > 0 ? selectedMonths : [new Date().getMonth()];
 
   const years = [new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1];
@@ -187,7 +187,7 @@ export default function BudgetsPage() {
                           onClick={() => {
                             const sourceKey = getMonthKey(m);
                             const targetKeys = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x));
-                            for (const c of expenseCategories) {
+                            for (const c of allCategories) {
                               const v = getBudget(c.id, sourceKey);
                               if (v > 0) copyToMonths(c.id, sourceKey, v, targetKeys);
                             }
@@ -204,8 +204,8 @@ export default function BudgetsPage() {
               </tr>
             </thead>
             <tbody>
-              {expenseCategories.length > 0 ? (
-                  expenseCategories.map((cat) => (
+              {allCategories.length > 0 ? (
+                  allCategories.map((cat) => (
                     <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-800 sticky left-0 bg-white z-10">
                         {cat.name}
