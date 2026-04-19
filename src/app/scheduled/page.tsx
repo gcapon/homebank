@@ -85,6 +85,34 @@ export default function ScheduledPage() {
     fetchData();
   }
 
+  async function handlePostOccurrence(id: string, occurrenceDate: string) {
+    const res = await fetch("/api/scheduled", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "post", id, occurrence_date: occurrenceDate }),
+    });
+    if (res.ok) {
+      fetchData();
+    } else {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      alert("Failed to post: " + err.error);
+    }
+  }
+
+  async function handleSkipOccurrence(id: string, occurrenceDate: string) {
+    const res = await fetch("/api/scheduled", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "skip", id, occurrence_date: occurrenceDate }),
+    });
+    if (res.ok) {
+      fetchData();
+    } else {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      alert("Failed to skip: " + err.error);
+    }
+  }
+
   async function handlePost(id: string) {
     const res = await fetch("/api/scheduled", {
       method: "POST",
@@ -145,12 +173,77 @@ export default function ScheduledPage() {
     return item.active && item.next_date <= today;
   }
 
-  function isWithinDays(item: typeof items[0], days: number) {
+  function computeOccurrences(sched: typeof items[0], maxDays: number): string[] {
+    const occurrences: string[] = [];
+    let current = new Date(sched.next_date + "T00:00:00");
     const today = new Date();
-    const itemDate = new Date(item.next_date + "T00:00:00");
-    const diffMs = itemDate.getTime() - today.getTime();
-    const diffDays = diffMs / (1000 * 60 * 60 * 24);
-    return diffDays >= 0 && diffDays <= days;
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(today);
+    end.setDate(end.getDate() + maxDays);
+
+    for (let i = 0; i < 200; i++) {
+      // safety cap
+      if (current > end) break;
+      const yyyy = current.getFullYear();
+      const mm = String(current.getMonth() + 1).padStart(2, "0");
+      const dd = String(current.getDate()).padStart(2, "0");
+      occurrences.push(`${yyyy}-${mm}-${dd}`);
+
+      const next = advanceDate(
+        `${yyyy}-${mm}-${dd}`,
+        sched.frequency,
+        sched.interval_count,
+        sched.day_of_week,
+        sched.day_of_month,
+        sched.week_of_month,
+        sched.weekend_action
+      );
+      current = new Date(next + "T00:00:00");
+    }
+    return occurrences;
+  }
+
+  function advanceDate(currentDate: string, frequency: string, intervalCount: number, dayOfWeek: number | null, dayOfMonth: number | null, weekOfMonth: number | null, weekendAction: string): string {
+    const d = new Date(currentDate + "T00:00:00");
+    switch (frequency) {
+      case "daily":
+        d.setDate(d.getDate() + intervalCount);
+        break;
+      case "weekly":
+        d.setDate(d.getDate() + 7 * intervalCount);
+        break;
+      case "monthly":
+        if (weekOfMonth != null && dayOfWeek != null) {
+          d.setMonth(d.getMonth() + intervalCount);
+          d.setDate(1);
+          let count = 0;
+          while (count < weekOfMonth) {
+            if (d.getDay() === dayOfWeek) count++;
+            if (count < weekOfMonth) d.setDate(d.getDate() + 1);
+          }
+        } else if (dayOfMonth != null) {
+          d.setMonth(d.getMonth() + intervalCount);
+          d.setDate(dayOfMonth);
+        } else {
+          d.setMonth(d.getMonth() + intervalCount);
+        }
+        break;
+      case "yearly":
+        d.setFullYear(d.getFullYear() + intervalCount);
+        break;
+      default:
+        d.setMonth(d.getMonth() + intervalCount);
+    }
+    // Weekend handling
+    const day = d.getDay();
+    if (day === 0 && weekendAction === "after") d.setDate(d.getDate() + 1);
+    else if (day === 0 && weekendAction === "before") d.setDate(d.getDate() - 1);
+    else if (day === 6 && weekendAction === "after") d.setDate(d.getDate() + 2);
+    else if (day === 6 && weekendAction === "before") d.setDate(d.getDate() - 1);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
   }
 
   function frequencyLabel(item: typeof items[0]) {
@@ -166,9 +259,21 @@ export default function ScheduledPage() {
     return `Every ${int} ${int === 1 ? unit : unit + "s"}`;
   }
 
+  // Build expanded occurrence list for upcoming view
+  const allOccurrences: (typeof items[0] & { occurrenceDate: string })[] = [];
   const today = new Date().toISOString().split("T")[0];
+  for (const item of items) {
+    if (!item.active) continue;
+    const occs = computeOccurrences(item, daysFilter === 999 ? 365 : daysFilter);
+    for (const occ of occs) {
+      if (occ < today) continue; // skip past
+      allOccurrences.push({ ...item, occurrenceDate: occ });
+    }
+  }
+  // Sort by occurrence date
+  allOccurrences.sort((a, b) => a.occurrenceDate.localeCompare(b.occurrenceDate));
+
   const dueItems = items.filter((i) => isDue(i));
-  const upcomingItems = items.filter((i) => !isDue(i) && i.active && isWithinDays(i, daysFilter));
 
   return (
     <div className="space-y-6">
@@ -324,18 +429,18 @@ export default function ScheduledPage() {
             </button>
           ))}
         </div>
-        <span className="text-sm text-gray-400">{upcomingItems.length} transactions</span>
+        <span className="text-sm text-gray-400">{allOccurrences.length} occurrences</span>
       </div>
 
       <div>
-        {upcomingItems.length === 0 ? (
+        {allOccurrences.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             No upcoming scheduled transactions in the next {daysFilter === 999 ? "year" : daysFilter + " days"}.
           </div>
         ) : (
           <div className="space-y-2">
-            {upcomingItems.map((item) => (
-              <div key={item.id} className={`flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border-l-4 ${isDue(item) ? "border-red-400" : item.active ? "border-green-400" : "border-gray-300"}`}>
+            {allOccurrences.map((item) => (
+              <div key={`${item.id}-${item.occurrenceDate}`} className="flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border-l-4 border-blue-400">
                 <div className="flex-1 grid grid-cols-5 gap-4 items-center">
                   <div>
                     <div className="font-medium text-gray-800">{item.description}</div>
@@ -343,18 +448,15 @@ export default function ScheduledPage() {
                   </div>
                   <div className="text-right font-semibold text-gray-700">${Math.abs(Number(item.amount)).toFixed(2)}</div>
                   <div className="text-xs text-gray-500">{frequencyLabel(item)}</div>
-                  <div className={`text-xs ${isDue(item) ? "text-red-600 font-medium" : "text-gray-500"}`}>
-                    {isDue(item) ? "⚠️ Due now" : `Next: ${item.next_date}`}
-                  </div>
+                  <div className="text-xs text-blue-600 font-medium">{item.occurrenceDate}</div>
                   <div className="text-xs text-gray-400">
                     {item.auto_post ? "🔁 Auto" : "👆 Manual"} · {item.post_count} posted
                     {item.max_posts ? ` / ${item.max_posts}` : ""}
                   </div>
                 </div>
                 <div className="flex gap-2 ml-4">
-                  {item.active && !isDue(item) && (
-                    <button onClick={() => handlePost(item.id)} className="px-3 py-1 bg-green-50 text-green-600 text-sm rounded hover:bg-green-100">Post Now</button>
-                  )}
+                  <button onClick={() => handlePostOccurrence(item.id, item.occurrenceDate)} className="px-3 py-1 bg-green-50 text-green-600 text-sm rounded hover:bg-green-100">Post</button>
+                  <button onClick={() => handleSkipOccurrence(item.id, item.occurrenceDate)} className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded hover:bg-gray-200">Skip</button>
                   <button onClick={() => startEdit(item)} className="px-3 py-1 bg-blue-50 text-blue-600 text-sm rounded hover:bg-blue-100">Edit</button>
                   <button onClick={() => handleDelete(item.id)} className="px-3 py-1 bg-red-50 text-red-600 text-sm rounded hover:bg-red-100">✕</button>
                 </div>

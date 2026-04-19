@@ -53,9 +53,10 @@ export async function POST(req: Request) {
       if (balError) return NextResponse.json({ error: "Balance update failed: " + balError.message }, { status: 500 });
     }
 
-    // Advance to next date
+    // Advance to next date — if occurrence_date provided, advance from there (not from next_date)
+    const baseDate = body.occurrence_date || s.next_date;
     const nextDate = computeNextDate(
-      s.next_date,
+      baseDate,
       s.frequency,
       s.interval_count,
       s.day_of_week,
