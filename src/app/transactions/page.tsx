@@ -314,11 +314,10 @@ export default function TransactionsPage() {
     ? transactions.filter((tx) => tx.account_id === selectedAccountId)
     : transactions;
 
-  // Compute running balance: sort ASCENDING to accumulate from oldest to newest, then map back to original order
+  // Compute running balance: sort ASCENDING to accumulate from oldest to newest
   const selectedAccount = selectedAccountId ? accounts.find((a) => a.id === selectedAccountId) : null;
   const runningBalanceMap = (() => {
     if (!selectedAccountId || !selectedAccount) return new Map<string, number>();
-    // Sort ascending (oldest first) to compute running balance correctly
     const sorted = [...filteredTransactions].sort((a, b) => {
       const dc = a.date.localeCompare(b.date);
       if (dc !== 0) return dc;
@@ -329,6 +328,13 @@ export default function TransactionsPage() {
     for (const tx of sorted) { r += Number(tx.amount); m.set(tx.id, r); }
     return m;
   })();
+
+  // Sort display the same way so balance values align with what's shown
+  const displayTransactions = [...filteredTransactions].sort((a, b) => {
+    const dc = a.date.localeCompare(b.date);
+    if (dc !== 0) return dc;
+    return ((a as any).created_at || a.id).localeCompare((b as any).created_at || b.id);
+  });
 
   return (
     <div className="space-y-6">
@@ -506,7 +512,7 @@ export default function TransactionsPage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="p-6">
-          {filteredTransactions.length > 0 ? (
+          {displayTransactions.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -522,7 +528,7 @@ export default function TransactionsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTransactions.map((tx) => (
+                  {displayTransactions.map((tx) => (
                     <tr key={tx.id} className={`border-b border-gray-50 last:border-0 ${tx.reconciled ? "bg-blue-50" : ""}`}>
                       <td className="py-3">
                         <input
