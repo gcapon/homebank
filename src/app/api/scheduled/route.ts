@@ -46,11 +46,12 @@ export async function POST(req: Request) {
       if (txError) return NextResponse.json({ error: txError.message }, { status: 500 });
 
       // Update account balance
-      const newBalance = Number(s.accounts.balance) + Number(s.amount);
-      await supabase
+      const newBalance = Number(s.accounts?.balance ?? 0) + Number(s.amount);
+      const { error: balError } = await supabase
         .from("accounts")
         .update({ balance: newBalance })
         .eq("id", s.account_id);
+      if (balError) return NextResponse.json({ error: "Balance update failed: " + balError.message }, { status: 500 });
     }
 
     // Advance to next date

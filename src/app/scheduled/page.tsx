@@ -90,7 +90,12 @@ export default function ScheduledPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "post", id }),
     });
-    if (res.ok) fetchData();
+    if (res.ok) {
+      fetchData();
+    } else {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      alert("Failed to post: " + err.error);
+    }
   }
 
   async function handleSkip(id: string) {
@@ -99,7 +104,12 @@ export default function ScheduledPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "skip", id }),
     });
-    if (res.ok) fetchData();
+    if (res.ok) {
+      fetchData();
+    } else {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      alert("Failed to skip: " + err.error);
+    }
   }
 
   function startEdit(item: typeof items[0]) {
