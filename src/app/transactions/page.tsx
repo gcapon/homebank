@@ -12,6 +12,7 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTransferPair, setEditingTransferPair] = useState<{ fromTx: Transaction; toTx: Transaction } | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [transactionType, setTransactionType] = useState<TxType>("expense");
   const today = new Date();
@@ -55,26 +56,72 @@ export default function TransactionsPage() {
     if (!supabaseRef.current) return;
 
     if (transactionType === "transfer") {
-      // Use the transfer API
-      const res = await fetch("/api/transfers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from_account_id: formData.account_id,
-          to_account_id: formData.to_account_id,
-          amount: Math.abs(formData.amount),
-          date: formData.date,
+      if (editingTransferPair) {
+        // Editing existing transfer pair
+        const absAmount = Math.abs(formData.amount);
+        const fromTx = editingTransferPair.fromTx;
+        const toTx = editingTransferPair.toTx;
+
+        // Old amounts (signs already correct in DB)
+        const oldFromAmount = Number(fromTx.amount);
+        const oldToAmount = Number(toTx.amount);
+
+        // New amounts
+        const newFromAmount = -absAmount;
+        const newToAmount = toTx.account_id ? absAmount : absAmount;
+
+        // Update both transactions
+        await supabaseRef.current.from("transactions").update({
           description: formData.description,
-        }),
-      });
-      if (res.ok) {
-        setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, date: defaultDate });
-        setShowForm(false);
-        fetchData();
+          amount: newFromAmount,
+          date: formData.date,
+        }).eq("id", fromTx.id);
+
+        await supabaseRef.current.from("transactions").update({
+          description: formData.description,
+          amount: newToAmount,
+          date: formData.date,
+        }).eq("id", toTx.id);
+
+        // Update account balances
+        const fromAcct = accounts.find((a) => a.id === fromTx.account_id);
+        const toAcct = accounts.find((a) => a.id === toTx.account_id);
+
+        if (fromAcct) {
+          await supabaseRef.current.from("accounts").update({
+            balance: Number(fromAcct.balance) - oldFromAmount + newFromAmount,
+          }).eq("id", fromTx.account_id);
+        }
+        if (toAcct) {
+          await supabaseRef.current.from("accounts").update({
+            balance: Number(toAcct.balance) - oldToAmount + newToAmount,
+          }).eq("id", toTx.account_id);
+        }
+
+        setEditingTransferPair(null);
       } else {
-        const err = await res.json();
-        alert("Error: " + err.error);
+        // Creating new transfer
+        const res = await fetch("/api/transfers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from_account_id: formData.account_id,
+            to_account_id: formData.to_account_id,
+            amount: Math.abs(formData.amount),
+            date: formData.date,
+            description: formData.description,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert("Error: " + err.error);
+          return;
+        }
       }
+      setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, date: defaultDate });
+      setShowForm(false);
+      setTransactionType("expense");
+      fetchData();
       return;
     }
 
@@ -105,14 +152,10 @@ export default function TransactionsPage() {
       const newAccount = accounts.find((a) => a.id === formData.account_id);
 
       if (oldAccount) {
-        await supabaseRef.current.from("accounts")
-          .update({ balance: Number(oldAccount.balance) - oldAmount })
-          .eq("id", oldAccount.id);
+        await supabaseRef.current.from("accounts").update({ balance: Number(oldAccount.balance) - oldAmount }).eq("id", oldAccount.id);
       }
       if (newAccount) {
-        await supabaseRef.current.from("accounts")
-          .update({ balance: Number(newAccount.balance) + amount })
-          .eq("id", newAccount.id);
+        await supabaseRef.current.from("accounts").update({ balance: Number(newAccount.balance) + amount }).eq("id", newAccount.id);
       }
       setEditingId(null);
     } else {
@@ -126,9 +169,7 @@ export default function TransactionsPage() {
 
       const account = accounts.find((a) => a.id === formData.account_id);
       if (account) {
-        await supabaseRef.current.from("accounts")
-          .update({ balance: Number(account.balance) + amount })
-          .eq("id", account.id);
+        await supabaseRef.current.from("accounts").update({ balance: Number(account.balance) + amount }).eq("id", account.id);
       }
     }
 
@@ -138,20 +179,26 @@ export default function TransactionsPage() {
   }
 
   function startEdit(tx: Transaction) {
-    setEditingId(tx.id);
-    const isTransfer = tx.transfer_id;
-    if (isTransfer) {
+    const pair = tx.transfer_id
+      ? transactions.find((t) => t.id !== tx.id && t.transfer_id === tx.transfer_id)
+      : null;
+
+    if (pair) {
+      setEditingTransferPair({ fromTx: tx, toTx: pair });
       setTransactionType("transfer");
-      // transfers have two tx with same transfer_id — show the pair info in description
+      const isFrom = Number(tx.amount) < 0;
+      const fromTx = isFrom ? tx : pair;
+      const toTx = isFrom ? pair : tx;
       setFormData({
-        account_id: tx.account_id,
-        to_account_id: "",
+        account_id: fromTx.account_id,
+        to_account_id: toTx.account_id,
         category_id: "",
-        description: tx.description,
-        amount: Math.abs(Number(tx.amount)),
-        date: tx.date,
+        description: fromTx.description.replace(/\s*[\u2192\u2190]\s.*/, ""), // strip arrow suffix
+        amount: Math.abs(Number(fromTx.amount)),
+        date: fromTx.date,
       });
     } else {
+      setEditingId(tx.id);
       setTransactionType(Number(tx.amount) < 0 ? "expense" : "income");
       setFormData({
         account_id: tx.account_id,
@@ -167,6 +214,7 @@ export default function TransactionsPage() {
 
   function cancelEdit() {
     setEditingId(null);
+    setEditingTransferPair(null);
     setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, date: defaultDate });
     setShowForm(false);
     setTransactionType("expense");
@@ -174,17 +222,34 @@ export default function TransactionsPage() {
 
   async function handleDelete(id: string) {
     if (!supabaseRef.current) return;
-    if (confirm("Delete this transaction?")) {
-      const tx = transactions.find((t) => t.id === id);
-      const account = accounts.find((a) => a.id === tx?.account_id);
-      if (account && tx) {
-        await supabaseRef.current.from("accounts")
-          .update({ balance: Number(account.balance) - Number(tx.amount) })
-          .eq("id", account.id);
+    const tx = transactions.find((t) => t.id === id);
+    if (!tx) return;
+
+    if (tx.transfer_id) {
+      if (!confirm("⚠️ This is a transfer. Deleting it will remove BOTH sides of the transfer. Continue?")) return;
+      const pair = transactions.find((t) => t.id !== id && t.transfer_id === tx.transfer_id);
+      // Reverse balances for both
+      const fromAcct = accounts.find((a) => a.id === tx.account_id);
+      if (fromAcct) {
+        await supabaseRef.current.from("accounts").update({ balance: Number(fromAcct.balance) - Number(tx.amount) }).eq("id", tx.account_id);
+      }
+      await supabaseRef.current.from("transactions").delete().eq("id", tx.id);
+      if (pair) {
+        const toAcct = accounts.find((a) => a.id === pair.account_id);
+        if (toAcct) {
+          await supabaseRef.current.from("accounts").update({ balance: Number(toAcct.balance) - Number(pair.amount) }).eq("id", pair.account_id);
+        }
+        await supabaseRef.current.from("transactions").delete().eq("id", pair.id);
+      }
+    } else {
+      if (!confirm("Delete this transaction?")) return;
+      const account = accounts.find((a) => a.id === tx.account_id);
+      if (account) {
+        await supabaseRef.current.from("accounts").update({ balance: Number(account.balance) - Number(tx.amount) }).eq("id", account.id);
       }
       await supabaseRef.current.from("transactions").delete().eq("id", id);
-      fetchData();
     }
+    fetchData();
   }
 
   async function handleReconcile(id: string, reconciled: boolean) {
@@ -221,6 +286,7 @@ export default function TransactionsPage() {
           onClick={() => {
             setShowForm(!showForm);
             setEditingId(null);
+            setEditingTransferPair(null);
             setTransactionType("expense");
             if (selectedAccountId) {
               setFormData({ ...formData, account_id: selectedAccountId });
@@ -235,6 +301,11 @@ export default function TransactionsPage() {
       {showForm && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {editingTransferPair && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+                📋 You're editing both sides of this transfer. Changes apply to both the From and To accounts.
+              </div>
+            )}
             {/* Type selector */}
             <div className="flex gap-2 mb-2">
               {(["expense", "income", "transfer"] as TxType[]).map((t) => (
@@ -265,6 +336,7 @@ export default function TransactionsPage() {
                   onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
+                  disabled={!!editingTransferPair}
                 >
                   <option value="">Select Account</option>
                   {accounts.map((acc) => (
@@ -355,9 +427,9 @@ export default function TransactionsPage() {
 
             <div className="flex gap-3">
               <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
-                {editingId ? "Update Transaction" : "Add Transaction"}
+                {editingTransferPair ? "Update Transfer" : editingId ? "Update Transaction" : "Add Transaction"}
               </button>
-              {editingId && (
+              {(editingId || editingTransferPair) && (
                 <button type="button" onClick={cancelEdit} className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">
                   Cancel
                 </button>
