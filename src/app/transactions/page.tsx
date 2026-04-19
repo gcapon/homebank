@@ -463,11 +463,11 @@ export default function TransactionsPage() {
                     <th className="pb-3 font-medium w-10"></th>
                     <th className="pb-3 font-medium">Date</th>
                     <th className="pb-3 font-medium">Description</th>
-                    {selectedAccountId && <th className="pb-3 font-medium text-right">Balance</th>}
                     <th className="pb-3 font-medium">Account</th>
                     <th className="pb-3 font-medium">Category</th>
                     <th className="pb-3 font-medium text-right">Amount</th>
-                    <th className="pb-3 font-medium w-36"></th>
+                    {selectedAccountId && <th className="pb-3 font-medium text-right">Balance</th>}
+                    <th className="pb-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -499,8 +499,8 @@ export default function TransactionsPage() {
                           ${(runningBalanceMap.get(tx.id) || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                         </td>
                       )}
-                      <td className="py-3 text-center flex gap-2 justify-end">
-                        <button onClick={() => startEdit(tx)} className="text-blue-400 hover:text-blue-600 text-xs">Edit</button>
+                      <td className="py-3 text-right">
+                        <button onClick={() => startEdit(tx)} className="text-blue-400 hover:text-blue-600 text-xs mr-3">Edit</button>
                         <button onClick={() => handleDelete(tx.id)} className="text-gray-400 hover:text-red-500 text-xs">✕</button>
                       </td>
                     </tr>
