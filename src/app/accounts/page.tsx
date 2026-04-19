@@ -32,10 +32,13 @@ export default function AccountsPage() {
     if (!supabaseRef.current) return;
 
     if (editingId) {
+      // For liability accounts (credit), normalize balance to negative
+      const finalBalance = formData.type === "credit" ? -Math.abs(formData.balance) : formData.balance;
       await supabaseRef.current.from("accounts").update({
         name: formData.name,
         type: formData.type,
         currency: formData.currency,
+        balance: finalBalance,
       }).eq("id", editingId);
       setEditingId(null);
     } else {
@@ -54,7 +57,7 @@ export default function AccountsPage() {
     setFormData({
       name: acc.name,
       type: acc.type as AccountType,
-      balance: 0, // Don't expose balance editing directly
+      balance: Number(acc.balance),
       currency: acc.currency,
     });
     setShowForm(true);
@@ -131,6 +134,18 @@ export default function AccountsPage() {
               {!editingId && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Opening Balance</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.balance}
+                    onChange={(e) => setFormData({ ...formData, balance: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              )}
+              {editingId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Current Balance</label>
                   <input
                     type="number"
                     step="0.01"
