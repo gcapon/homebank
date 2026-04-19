@@ -318,7 +318,14 @@ export default function TransactionsPage() {
   const selectedAccount = selectedAccountId ? accounts.find((a) => a.id === selectedAccountId) : null;
   const runningBalanceMap = useMemo(() => {
     if (!selectedAccountId || !selectedAccount) return new Map<string, number>();
-    const sorted = [...filteredTransactions].sort((a, b) => a.date.localeCompare(b.date));
+    const sorted = [...filteredTransactions].sort((a, b) => {
+      const date_cmp = a.date.localeCompare(b.date);
+      if (date_cmp !== 0) return date_cmp;
+      // Same date: sort by created_at (insertion order), then by id as final tiebreaker
+      const ca = (a as any).created_at || "";
+      const cb = (b as any).created_at || "";
+      return ca.localeCompare(cb) || a.id.localeCompare(b.id);
+    });
     let running = Number(selectedAccount.opening_balance);
     const map = new Map<string, number>();
     for (const tx of sorted) {
