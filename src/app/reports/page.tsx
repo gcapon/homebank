@@ -93,6 +93,8 @@ export default function ReportsPage() {
       let totalExpenses = 0;
 
       transactions.forEach((tx: any) => {
+        // Skip transfers — they're balance sheet movements, not income/expense
+        if (tx.transfer_id) return;
         const catName = tx.categories?.name || "Uncategorized";
         const accName = tx.accounts?.name || "Unknown";
         if (Number(tx.amount) > 0) {
