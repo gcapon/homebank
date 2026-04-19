@@ -62,40 +62,90 @@ export default function TransactionsPage() {
         const fromTx = editingTransferPair.fromTx;
         const toTx = editingTransferPair.toTx;
 
-        // Old amounts (signs already correct in DB)
+        // Old amounts and accounts (signs already correct in DB)
         const oldFromAmount = Number(fromTx.amount);
         const oldToAmount = Number(toTx.amount);
+        const oldFromAccountId = fromTx.account_id;
+        const oldToAccountId = toTx.account_id;
+        const newFromAccountId = formData.account_id;
+        const newToAccountId = formData.to_account_id;
 
-        // New amounts
+        // New amounts (from is always negative outflow, to is positive inflow)
         const newFromAmount = -absAmount;
-        const newToAmount = toTx.account_id ? absAmount : absAmount;
+        const newToAmount = absAmount;
 
-        // Update both transactions
+        // Determine what changed
+        const fromAccountChanged = oldFromAccountId !== newFromAccountId;
+        const toAccountChanged = oldToAccountId !== newToAccountId;
+
+        // Update transaction records with new account_ids, amounts, descriptions, dates
         await supabaseRef.current.from("transactions").update({
-          description: formData.description,
+          account_id: newFromAccountId,
+          description: `${formData.description} → ${accounts.find((a) => a.id === newToAccountId)?.name || ""}`,
           amount: newFromAmount,
           date: formData.date,
         }).eq("id", fromTx.id);
 
         await supabaseRef.current.from("transactions").update({
-          description: formData.description,
+          account_id: newToAccountId,
+          description: `${formData.description} ← ${accounts.find((a) => a.id === newFromAccountId)?.name || ""}`,
           amount: newToAmount,
           date: formData.date,
         }).eq("id", toTx.id);
 
-        // Update account balances
-        const fromAcct = accounts.find((a) => a.id === fromTx.account_id);
-        const toAcct = accounts.find((a) => a.id === toTx.account_id);
+        // Update account balances:
+        // 1. Reverse old from from the old from account (if from changed, this reverses the old; otherwise it adjusts the same account)
+        // 2. Apply new from to the new from account
+        // Same pattern for to account
 
-        if (fromAcct) {
-          await supabaseRef.current.from("accounts").update({
-            balance: Number(fromAcct.balance) - oldFromAmount + newFromAmount,
-          }).eq("id", fromTx.account_id);
+        if (fromAccountChanged) {
+          // Restore old from account: add back the old amount (+oldFromAmount because oldFromAmount is negative)
+          const oldFromAcct = accounts.find((a) => a.id === oldFromAccountId);
+          if (oldFromAcct) {
+            await supabaseRef.current.from("accounts").update({
+              balance: Number(oldFromAcct.balance) - oldFromAmount,
+            }).eq("id", oldFromAccountId);
+          }
+          // Apply new from to new from account
+          const newFromAcct = accounts.find((a) => a.id === newFromAccountId);
+          if (newFromAcct) {
+            await supabaseRef.current.from("accounts").update({
+              balance: Number(newFromAcct.balance) + newFromAmount,
+            }).eq("id", newFromAccountId);
+          }
+        } else {
+          // Same from account: adjust by the difference
+          const fromAcct = accounts.find((a) => a.id === oldFromAccountId);
+          if (fromAcct) {
+            await supabaseRef.current.from("accounts").update({
+              balance: Number(fromAcct.balance) - oldFromAmount + newFromAmount,
+            }).eq("id", oldFromAccountId);
+          }
         }
-        if (toAcct) {
-          await supabaseRef.current.from("accounts").update({
-            balance: Number(toAcct.balance) - oldToAmount + newToAmount,
-          }).eq("id", toTx.account_id);
+
+        if (toAccountChanged) {
+          // Reverse old to from old to account
+          const oldToAcct = accounts.find((a) => a.id === oldToAccountId);
+          if (oldToAcct) {
+            await supabaseRef.current.from("accounts").update({
+              balance: Number(oldToAcct.balance) - oldToAmount,
+            }).eq("id", oldToAccountId);
+          }
+          // Apply new to to new to account
+          const newToAcct = accounts.find((a) => a.id === newToAccountId);
+          if (newToAcct) {
+            await supabaseRef.current.from("accounts").update({
+              balance: Number(newToAcct.balance) + newToAmount,
+            }).eq("id", newToAccountId);
+          }
+        } else {
+          // Same to account: adjust by the difference
+          const toAcct = accounts.find((a) => a.id === oldToAccountId);
+          if (toAcct) {
+            await supabaseRef.current.from("accounts").update({
+              balance: Number(toAcct.balance) - oldToAmount + newToAmount,
+            }).eq("id", oldToAccountId);
+          }
         }
 
         setEditingTransferPair(null);
@@ -350,7 +400,6 @@ export default function TransactionsPage() {
                   onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
-                  disabled={!!editingTransferPair}
                 >
                   <option value="">Select Account</option>
                   {accounts.map((acc) => (
