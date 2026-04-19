@@ -36,11 +36,12 @@ export default function AccountsPage() {
         name: formData.name,
         type: formData.type,
         currency: formData.currency,
-        // Balance is NOT updated here — it's managed by transactions
       }).eq("id", editingId);
       setEditingId(null);
     } else {
-      await supabaseRef.current.from("accounts").insert(formData);
+      // For liability accounts (credit), opening balance is negative
+      const initialBalance = formData.type === "credit" ? -Math.abs(formData.balance) : formData.balance;
+      await supabaseRef.current.from("accounts").insert({ ...formData, balance: initialBalance });
     }
 
     setFormData({ name: "", type: "checking", balance: 0, currency: "USD" });
