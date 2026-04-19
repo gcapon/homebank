@@ -321,11 +321,15 @@ export default function TransactionsPage() {
     const sorted = [...filteredTransactions].sort((a, b) => {
       const date_cmp = a.date.localeCompare(b.date);
       if (date_cmp !== 0) return date_cmp;
-      // Same date: sort by created_at (insertion order), then by id as final tiebreaker
-      const ca = (a as any).created_at || "";
-      const cb = (b as any).created_at || "";
-      return ca.localeCompare(cb) || a.id.localeCompare(b.id);
+      // Same date: created_at should be the tiebreaker — fall back to id if missing
+      const ca = (a as any).created_at || a.id;
+      const cb = (b as any).created_at || b.id;
+      return ca.localeCompare(cb);
     });
+    // DEBUG
+    if (sorted.length > 0 && sorted[0].date === sorted[sorted.length - 1].date) {
+      console.log("[DEBUG same-day sort]", sorted.slice(0, 5).map((t) => ({ id: t.id.slice(0, 8), date: t.date, created_at: (t as any).created_at, amount: t.amount })));
+    }
     let running = Number(selectedAccount.opening_balance);
     const map = new Map<string, number>();
     for (const tx of sorted) {
