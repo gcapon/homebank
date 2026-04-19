@@ -114,7 +114,7 @@ export default function ReportsPage() {
               </p>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <p className="text-sm text-gray-500 mb-1">Net Savings</p>
+              <p className="text-sm text-gray-500 mb-1">Net</p>
               <p className={`text-2xl font-bold ${reportData.netSavings >= 0 ? "text-green-600" : "text-red-600"}`}>
                 ${reportData.netSavings.toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </p>
