@@ -13,7 +13,7 @@ const WEEKEND_ACTIONS = [
 ];
 
 export default function ScheduledPage() {
-  const [items, setItems] = useState<(ScheduledTransaction & { accounts?: { name: string }; categories?: { name: string } })[]>([]);
+  const [items, setItems] = useState<(ScheduledTransaction & { accounts?: { name: string }; to_account?: { name: string } | null; categories?: { name: string } })[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -44,11 +44,22 @@ export default function ScheduledPage() {
 
   async function fetchData() {
     const [schedRes, acctRes, catRes] = await Promise.all([
-      supabase.from("scheduled_transactions").select("*, accounts(name), categories(name)").order("next_date"),
+      supabase.from("scheduled_transactions").select("*").order("next_date"),
       supabase.from("accounts").select("*").order("name"),
       supabase.from("categories").select("*").order("name"),
     ]);
-    if (schedRes.data) setItems(schedRes.data);
+    if (schedRes.data) {
+      // Attach account/category names manually (can't use embedded select due to dual FK to accounts)
+      const acctMap = Object.fromEntries((acctRes.data || []).map((a: any) => [a.id, a]));
+      const catMap = Object.fromEntries((catRes.data || []).map((c: any) => [c.id, c]));
+      const withNames = schedRes.data.map((s: any) => ({
+        ...s,
+        accounts: acctMap[s.account_id],
+        to_account: s.to_account_id ? acctMap[s.to_account_id] : null,
+        categories: catMap[s.category_id],
+      }));
+      setItems(withNames as any);
+    }
     if (acctRes.data) setAccounts(acctRes.data);
     if (catRes.data) setCategories(catRes.data);
   }
@@ -436,7 +447,7 @@ export default function ScheduledPage() {
                 <div className="flex-1 grid grid-cols-4 gap-4 items-center">
                   <div>
                     <div className="font-medium text-gray-800">{item.description}</div>
-                    <div className="text-xs text-gray-500">{item.accounts?.name}</div>
+                    <div className="text-xs text-gray-500">{item.accounts?.name}{item.to_account ? ` → ${item.to_account.name}` : ""}</div>
                   </div>
                   <div className="text-right font-semibold text-gray-700">${Math.abs(Number(item.amount)).toFixed(2)}</div>
                   <div className="text-xs text-gray-500">{frequencyLabel(item)}</div>
@@ -492,7 +503,7 @@ export default function ScheduledPage() {
                 <div className="flex-1 grid grid-cols-5 gap-4 items-center">
                   <div>
                     <div className="font-medium text-gray-800">{item.description}</div>
-                    <div className="text-xs text-gray-500">{item.accounts?.name}{item.categories ? ` → ${item.categories.name}` : ""}</div>
+                    <div className="text-xs text-gray-500">{item.accounts?.name}{item.to_account ? ` → ${item.to_account.name}` : item.categories ? ` → ${item.categories.name}` : ""}</div>
                   </div>
                   <div className="text-right font-semibold text-gray-700">${Math.abs(Number(item.amount)).toFixed(2)}</div>
                   <div className="text-xs text-gray-500">{frequencyLabel(item)}</div>
