@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import type { Category, Budget } from "@/types";
+import type { Category, Budget, Transaction } from "@/types";
+
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -21,6 +22,7 @@ export default function BudgetsPage() {
   const [editingCell, setEditingCell] = useState<{ categoryId: string; month: string } | null>(null);
   const [cellValue, setCellValue] = useState("");
   const [saving, setSaving] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
   useEffect(() => {
@@ -33,12 +35,14 @@ export default function BudgetsPage() {
 
   async function fetchData() {
     if (!supabaseRef.current) return;
-    const [catResult, budgetResult] = await Promise.all([
+    const [catResult, budgetResult, txResult] = await Promise.all([
       supabaseRef.current.from("categories").select("*").order("name"),
       supabaseRef.current.from("budgets").select("*"),
+      supabaseRef.current.from("transactions").select("*"),
     ]);
     if (catResult.data) setCategories(catResult.data);
     if (budgetResult.data) setBudgets(budgetResult.data);
+    if (txResult.data) setTransactions(txResult.data);
   }
 
   async function saveBudget(categoryId: string, month: string, amount: number) {
@@ -86,6 +90,20 @@ export default function BudgetsPage() {
   function getBudget(categoryId: string, month: string): number {
     const budget = budgets.find((b) => b.category_id === categoryId && b.month === month);
     return budget ? Number(budget.amount) : 0;
+  }
+
+  function getSpent(categoryId: string, monthKey: string): number {
+    return transactions
+      .filter((tx) => tx.category_id === categoryId && tx.date.startsWith(monthKey) && Number(tx.amount) < 0)
+      .reduce((sum, tx) => sum + Math.abs(Number(tx.amount)), 0);
+  }
+
+  function getVarianceColor(budget: number, spent: number): string {
+    if (budget === 0 || spent === 0) return "text-gray-400";
+    const pct = spent / budget;
+    if (pct > 1) return "text-red-600";
+    if (pct >= 0.8) return "text-yellow-600";
+    return "text-green-600";
   }
 
   function getMonthKey(monthIndex: number): string {
@@ -194,7 +212,9 @@ export default function BudgetsPage() {
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
                       const budget = getBudget(cat.id, monthKey);
+                      const spent = getSpent(cat.id, monthKey);
                       const isEditing = editingCell?.categoryId === cat.id && editingCell?.month === monthKey;
+                      const hasData = budget > 0 || spent > 0;
 
                       return (
                         <td key={m} className="px-4 py-3 text-center">
@@ -221,31 +241,36 @@ export default function BudgetsPage() {
                               <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
                             </div>
                           ) : (
-                            <div
-                              onClick={() => startEdit(cat.id, monthKey, budget)}
-                              className="cursor-pointer hover:bg-blue-50 rounded py-1"
-                            >
-                              {budget > 0 ? (
-                                <div>
-                                  <span className="font-semibold text-gray-700">${budget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                                  {displayMonths.length > 1 && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const targets = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x));
-                                        copyToMonths(cat.id, monthKey, budget, targets);
-                                      }}
-                                      className="ml-1 text-xs text-blue-400 hover:text-blue-600"
-                                      title="Copy to other months"
-                                    >
-                                      ↔
-                                    </button>
+                            <div className="flex flex-col gap-0.5 min-h-12">
+                                <div
+                                  onClick={() => startEdit(cat.id, monthKey, budget)}
+                                  className="cursor-pointer hover:bg-blue-50 rounded py-0.5"
+                                >
+                                  {budget > 0 ? (
+                                    <span className="font-semibold text-gray-700">${budget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                  ) : (
+                                    <span className="text-gray-300">+</span>
                                   )}
                                 </div>
-                              ) : (
-                                <span className="text-gray-300 text-lg">+</span>
-                              )}
-                            </div>
+                                {hasData && (
+                                  <div className={`text-sm ${getVarianceColor(budget, spent)}`}>
+                                    ${spent.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                                  </div>
+                                )}
+                                {displayMonths.length > 1 && budget > 0 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const targets = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x));
+                                      copyToMonths(cat.id, monthKey, budget, targets);
+                                    }}
+                                    className="text-xs text-blue-400 hover:text-blue-600"
+                                    title="Copy to other months"
+                                  >
+                                    ↔
+                                  </button>
+                                )}
+                              </div>
                           )}
                         </td>
                       );
