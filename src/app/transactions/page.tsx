@@ -26,7 +26,7 @@ export default function TransactionsPage() {
     to_account_id: "",
     category_id: "",
     description: "",
-    amount: 0,
+    amount: "",
     memo: "",
     date: defaultDate,
   });
@@ -59,7 +59,7 @@ export default function TransactionsPage() {
     if (transactionType === "transfer") {
       if (editingTransferPair) {
         // Editing existing transfer pair
-        const absAmount = Math.abs(formData.amount);
+        const absAmount = Math.abs(Number(formData.amount) || 0);
         const fromTx = editingTransferPair.fromTx;
         const toTx = editingTransferPair.toTx;
 
@@ -160,7 +160,7 @@ export default function TransactionsPage() {
           body: JSON.stringify({
             from_account_id: formData.account_id,
             to_account_id: formData.to_account_id,
-            amount: Math.abs(formData.amount),
+            amount: Math.abs(Number(formData.amount) || 0),
             date: formData.date,
             description: formData.description,
           }),
@@ -171,7 +171,7 @@ export default function TransactionsPage() {
           return;
         }
       }
-      setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, memo: "", date: defaultDate });
+      setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: "", memo: "", date: defaultDate });
       setShowForm(false);
       setTransactionType("expense");
       fetchData();
@@ -179,7 +179,7 @@ export default function TransactionsPage() {
     }
 
     // Expense or Income
-    let amount = Math.abs(formData.amount);
+    let amount = Math.abs(Number(formData.amount) || 0);
     if (transactionType === "expense" && formData.category_id) {
       const category = categories.find((c) => c.id === formData.category_id);
       if (category?.type === "expense") {
@@ -228,7 +228,7 @@ export default function TransactionsPage() {
       }
     }
 
-    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, memo: "", date: defaultDate });
+    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: "", memo: "", date: defaultDate });
     setShowForm(false);
     fetchData();
   }
@@ -249,7 +249,7 @@ export default function TransactionsPage() {
         to_account_id: toTx.account_id,
         category_id: "",
         description: fromTx.description.replace(/\s*[\u2192\u2190]\s.*/, ""), // strip arrow suffix
-        amount: Math.abs(Number(fromTx.amount)),
+        amount: String(Math.abs(Number(fromTx.amount))),
         memo: (fromTx as any).memo || "",
         date: fromTx.date,
       });
@@ -261,7 +261,7 @@ export default function TransactionsPage() {
         to_account_id: "",
         category_id: tx.category_id || "",
         description: tx.description,
-        amount: Math.abs(Number(tx.amount)),
+        amount: String(Math.abs(Number(tx.amount))),
         memo: tx.memo || "",
         date: tx.date,
       });
@@ -272,7 +272,7 @@ export default function TransactionsPage() {
   function cancelEdit() {
     setEditingId(null);
     setEditingTransferPair(null);
-    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: 0, memo: "", date: defaultDate });
+    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: "", memo: "", date: defaultDate });
     setShowForm(false);
     setTransactionType("expense");
   }
@@ -499,9 +499,9 @@ export default function TransactionsPage() {
                   type="number"
                   step="0.01"
                   value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="0.00"
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
