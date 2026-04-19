@@ -302,34 +302,34 @@ export default function BudgetsPage() {
                       ))}
                     </>
                   )}
-                  {/* Net row */}
+                  {/* Net section header */}
                   <tr className="bg-blue-50 border-t-2 border-blue-300">
-                    <td className="px-4 py-3 font-bold text-blue-800 sticky left-0 bg-blue-50 z-10">
-                      Net (Income − Expenses)
-                    </td>
-                    {displayMonths.map((m) => {
-                      const monthKey = getMonthKey(m);
-                      const totalBudgetIncome = incomeCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
-                      const totalBudgetExpenses = expenseCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
-                      const totalSpentIncome = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
-                      const totalSpentExpenses = expenseCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "expense"), 0);
-                      const netBudget = totalBudgetIncome - totalBudgetExpenses;
-                      const netActual = totalSpentIncome - totalSpentExpenses;
-                      const netColor = netActual >= 0 ? "text-green-600" : "text-red-600";
-                      return (
-                        <td key={m} className="px-4 py-3 text-center">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="font-semibold text-gray-700">
-                              {netBudget !== 0 ? `$${netBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "—"}
-                            </span>
-                            <span className={`text-sm font-bold ${netColor}`}>
-                              ${netActual.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                            </span>
-                          </div>
-                        </td>
-                      );
-                    })}
+                    <td className="px-4 py-2 font-bold text-blue-800 sticky left-0 bg-blue-50 z-10" colSpan={displayMonths.length + 1}>📊 NET (INCOME − EXPENSES)</td>
                   </tr>
+                  {displayMonths.map((m) => {
+                    const monthKey = getMonthKey(m);
+                    const totalBudgetIncome = incomeCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                    const totalBudgetExpenses = expenseCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                    const totalSpentIncome = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
+                    const totalSpentExpenses = expenseCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "expense"), 0);
+                    const netBudget = totalBudgetIncome - totalBudgetExpenses;
+                    const netActual = totalSpentIncome - totalSpentExpenses;
+                    const netColor = netActual >= 0 ? "text-green-600" : "text-red-600";
+                    return (
+                      <td key={m} className="px-4 py-3 text-center">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="text-xs text-gray-500">Budgeted</div>
+                          <span className="font-semibold text-gray-700">
+                            {netBudget !== 0 ? `$${netBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "—"}
+                          </span>
+                          <div className="text-xs text-gray-500">Actual</div>
+                          <span className={`text-sm font-bold ${netColor}`}>
+                            ${netActual.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </td>
+                    );
+                  })}
                 </>
               ) : (
                 <tr>
