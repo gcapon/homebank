@@ -467,7 +467,7 @@ export default function TransactionsPage() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payee</label>
                 <input
                   type="text"
                   value={formData.description}
@@ -541,7 +541,7 @@ export default function TransactionsPage() {
                   <tr className="text-left text-sm text-gray-500 border-b border-gray-100">
                     <th className="pb-3 font-medium w-10"></th>
                     <th className="pb-3 font-medium">Date</th>
-                    <th className="pb-3 font-medium">Description</th>
+                    <th className="pb-3 font-medium">Payee</th>
                     <th className="pb-3 font-medium">Memo</th>
                     <th className="pb-3 font-medium">Account</th>
                     <th className="pb-3 font-medium">Category</th>

@@ -132,7 +132,7 @@ export default function ImportPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Description Column</label>
+              <label className="block text-xs text-gray-500 mb-1">Payee Column</label>
               <select
                 value={mapping.descCol}
                 onChange={(e) => setMapping({ ...mapping, descCol: e.target.value })}
