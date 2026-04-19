@@ -10,7 +10,14 @@ export default function BudgetsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+  const nextSix = [lastMonth];
+  for (let i = 1; i <= 6; i++) {
+    nextSix.push((lastMonth + i) % 12);
+  }
+  const [selectedMonths, setSelectedMonths] = useState<number[]>(nextSix);
   const [editingCell, setEditingCell] = useState<{ categoryId: string; month: string } | null>(null);
   const [cellValue, setCellValue] = useState("");
   const [saving, setSaving] = useState(false);
