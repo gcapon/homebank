@@ -10,7 +10,7 @@ export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [preview, setPreview] = useState<Record<string, string>[]>([]);
-  const [mapping, setMapping] = useState({ accountId: '', dateCol: '', descCol: '', amountCol: '', typeCol: '', memoCol: '' });
+  const [mapping, setMapping] = useState({ accountCol: '', dateCol: '', descCol: '', amountCol: '', typeCol: '', memoCol: '' });
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{ imported?: number; error?: string } | null>(null);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
@@ -40,13 +40,14 @@ export default function ImportPage() {
         setHeaders(cols);
         setPreview(results.data as Record<string, string>[]);
         // Auto-detect common column names
+        const acctMatch = cols.find((c) => /account/i.test(c));
         const dateMatch = cols.find((c) => /date/i.test(c));
-        const descMatch = cols.find((c) => /description|memo|payee/i.test(c));
+        const descMatch = cols.find((c) => /description|payee|name/i.test(c));
         const amountMatch = cols.find((c) => /amount|value|sum/i.test(c));
         const typeMatch = cols.find((c) => /type|transfer|income|expense/i.test(c));
         const memoMatch = cols.find((c) => /note|memo|comment|reference/i.test(c));
         setMapping({
-          accountId: mapping.accountId,
+          accountCol: acctMatch || '',
           dateCol: dateMatch || cols[0] || '',
           descCol: descMatch || cols[1] || '',
           amountCol: amountMatch || cols[2] || '',
@@ -58,13 +59,13 @@ export default function ImportPage() {
   }
 
   async function handleImport() {
-    if (!file || !mapping.accountId || !mapping.dateCol || !mapping.descCol || !mapping.amountCol) return;
+    if (!file || !mapping.dateCol || !mapping.descCol || !mapping.amountCol) return;
     setImporting(true);
     setResult(null);
 
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('accountId', mapping.accountId);
+    formData.append('accountCol', mapping.accountCol);
     formData.append('dateCol', mapping.dateCol);
     formData.append('descCol', mapping.descCol);
     formData.append('amountCol', mapping.amountCol);
@@ -85,17 +86,18 @@ export default function ImportPage() {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">📥 Import Transactions from CSV</h2>
 
-      {/* Account Selection */}
+      {/* Account Column Mapping - leave blank if all transactions are for one account */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Import into Account</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Account Column (optional)</label>
+        <p className="text-xs text-gray-400 mb-2">If your CSV has an account name per row, select that column. Leave blank if all rows are for the same account.</p>
         <select
-          value={mapping.accountId}
-          onChange={(e) => setMapping({ ...mapping, accountId: e.target.value })}
+          value={mapping.accountCol}
+          onChange={(e) => setMapping({ ...mapping, accountCol: e.target.value })}
           className="w-full md:w-64 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">Select Account</option>
-          {accounts.map((acc) => (
-            <option key={acc.id} value={acc.id}>{acc.name}</option>
+          <option value="">Same account for all rows</option>
+          {headers.map((h) => (
+            <option key={h} value={h}>{h}</option>
           ))}
         </select>
       </div>
@@ -201,7 +203,7 @@ export default function ImportPage() {
       )}
 
       {/* Import Button */}
-      {file && mapping.accountId && (
+      {file && mapping.dateCol && mapping.descCol && mapping.amountCol && (
         <div className="flex items-center gap-4">
           <button
             onClick={handleImport}
