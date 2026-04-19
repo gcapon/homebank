@@ -326,10 +326,15 @@ export default function TransactionsPage() {
       const cb = (b as any).created_at || b.id;
       return ca.localeCompare(cb);
     });
-    // DEBUG same-day sort
-    const sameDay = sorted.filter((t) => t.date === sorted[0].date);
-    if (sameDay.length > 1) {
-      console.log("[DEBUG same-day sort]", sameDay.map((t) => ({ id: t.id.slice(0, 8), date: t.date, created_at: (t as any).created_at, amount: t.amount })));
+    // DEBUG same-day sort - check any date group with >1
+    const dateGroups: Record<string, typeof sorted> = {};
+    for (const tx of sorted) {
+      if (!dateGroups[tx.date]) dateGroups[tx.date] = [];
+      dateGroups[tx.date].push(tx);
+    }
+    const debugDate = Object.keys(dateGroups).find((d) => dateGroups[d].length > 1);
+    if (debugDate) {
+      console.log("[DEBUG same-day sort]", dateGroups[debugDate].map((t) => ({ id: t.id.slice(0, 8), date: t.date, created_at: (t as any).created_at, amount: t.amount })));
     }
     let running = Number(selectedAccount.opening_balance);
     const map = new Map<string, number>();
