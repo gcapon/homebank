@@ -50,7 +50,12 @@ ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
 
--- Public read/write policies (for now - add auth later)
+-- Public read/write policies (drop first if exists, then recreate)
+DROP POLICY IF EXISTS "Public read/write accounts" ON accounts;
+DROP POLICY IF EXISTS "Public read/write categories" ON categories;
+DROP POLICY IF EXISTS "Public read/write transactions" ON transactions;
+DROP POLICY IF EXISTS "Public read/write budgets" ON budgets;
+
 CREATE POLICY "Public read/write accounts" ON accounts FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public read/write categories" ON categories FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public read/write transactions" ON transactions FOR ALL USING (true) WITH CHECK (true);
@@ -82,6 +87,7 @@ CREATE TABLE IF NOT EXISTS scheduled_transactions (
 
 -- RLS
 ALTER TABLE scheduled_transactions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all for owner" ON scheduled_transactions;
 CREATE POLICY "Allow all for owner" ON scheduled_transactions FOR ALL USING (true) WITH CHECK (true);
 
 -- Index for finding due transactions
