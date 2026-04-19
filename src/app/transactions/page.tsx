@@ -329,11 +329,15 @@ export default function TransactionsPage() {
     return m;
   })();
 
-  // Sort display the same way so balance values align with what's shown
+  // Sort display DESCENDING (newest first) while runningBalanceMap uses ascending for correct accumulation
   const displayTransactions = [...filteredTransactions].sort((a, b) => {
-    const dc = a.date.localeCompare(b.date);
+    // Primary: newest date first
+    const dc = b.date.localeCompare(a.date);
     if (dc !== 0) return dc;
-    return ((a as any).created_at || a.id).localeCompare((b as any).created_at || b.id);
+    // Tiebreaker: within same day, newest created_at first (reverse of ascending sort)
+    const ca = (a as any).created_at || a.id;
+    const cb = (b as any).created_at || b.id;
+    return cb.localeCompare(ca);
   });
 
   return (
