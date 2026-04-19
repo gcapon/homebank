@@ -259,6 +259,7 @@ export default function ScheduledPage() {
   }
 
   function frequencyLabel(item: typeof items[0]) {
+    if (!item.frequency) return "—";
     const int = item.interval_count || 1;
     const unit = item.frequency === "daily" ? "day" : item.frequency === "weekly" ? "week" : item.frequency === "monthly" ? "month" : "year";
     if (item.frequency === "monthly" && item.week_of_month != null && item.day_of_week != null) {
@@ -276,6 +277,8 @@ export default function ScheduledPage() {
   const today = new Date().toISOString().split("T")[0];
   for (const item of items) {
     if (!item.active) continue;
+    // Skip items with invalid frequency data
+    if (!item.frequency || !item.next_date) continue;
     const occs = computeOccurrences(item, daysFilter === 999 ? 365 : daysFilter);
     for (const occ of occs) {
       if (occ < today) continue; // skip past
