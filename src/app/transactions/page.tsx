@@ -10,6 +10,7 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -149,12 +150,42 @@ export default function TransactionsPage() {
     }
   }
 
+  async function handleReconcile(id: string, reconciled: boolean) {
+    if (!supabaseRef.current) return;
+    await supabaseRef.current.from("transactions").update({ reconciled }).eq("id", id);
+    fetchData();
+  }
+
+  const filteredTransactions = selectedAccountId
+    ? transactions.filter((tx) => tx.account_id === selectedAccountId)
+    : transactions;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">Transactions</h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-bold text-gray-800">Transactions</h2>
+          <select
+            value={selectedAccountId}
+            onChange={(e) => setSelectedAccountId(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+          >
+            <option value="">All Accounts</option>
+            {accounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name} (${Number(acc.balance).toLocaleString("en-US", { minimumFractionDigits: 2 })})
+              </option>
+            ))}
+          </select>
+        </div>
         <button
-          onClick={() => { setShowForm(!showForm); setEditingId(null); }}
+          onClick={() => {
+            setShowForm(!showForm);
+            setEditingId(null);
+            if (selectedAccountId && !editingId) {
+              setFormData({ ...formData, account_id: selectedAccountId });
+            }
+          }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
         >
           {showForm ? "Cancel" : "+ Add Transaction"}
@@ -250,22 +281,34 @@ export default function TransactionsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="text-left text-sm text-gray-500 border-b border-gray-100">
+                    <th className="pb-3 font-medium w-10"></th>
                     <th className="pb-3 font-medium">Date</th>
                     <th className="pb-3 font-medium">Description</th>
                     <th className="pb-3 font-medium">Account</th>
                     <th className="pb-3 font-medium">Category</th>
                     <th className="pb-3 font-medium text-right">Amount</th>
-                    <th className="pb-3 font-medium w-20"></th>
+                    <th className="pb-3 font-medium w-36"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((tx) => (
-                    <tr key={tx.id} className="border-b border-gray-50 last:border-0">
-                      <td className="py-3 text-sm text-gray-600">{tx.date}</td>
-                      <td className="py-3 font-medium text-gray-800">{tx.description}</td>
-                      <td className="py-3 text-sm text-gray-600">{(tx as any).accounts?.name || "-"}</td>
-                      <td className="py-3 text-sm text-gray-600">{(tx as any).categories?.name || "-"}</td>
-                      <td className={`py-3 font-semibold text-right ${Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  {filteredTransactions.map((tx) => (
+                    <tr key={tx.id} className={`border-b border-gray-50 last:border-0 ${tx.reconciled ? "bg-green-50" : ""}`}>
+                      <td className="py-3">
+                        <button
+                          onClick={() => handleReconcile(tx.id, !tx.reconciled)}
+                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
+                            tx.reconciled ? "bg-green-500 border-green-500 text-white" : "border-gray-300 hover:border-green-400"
+                          }`}
+                          title={tx.reconciled ? "Reconciled — click to unmark" : "Mark as reconciled"}
+                        >
+                          {tx.reconciled && <span className="text-xs">✓</span>}
+                        </button>
+                      </td>
+                      <td className={`py-3 text-sm ${tx.reconciled ? "text-gray-500" : "text-gray-600"}`}>{tx.date}</td>
+                      <td className={`py-3 font-medium ${tx.reconciled ? "text-gray-500" : "text-gray-800"}`}>{tx.description}</td>
+                      <td className={`py-3 text-sm ${tx.reconciled ? "text-gray-500" : "text-gray-600"}`}>{(tx as any).accounts?.name || "-"}</td>
+                      <td className={`py-3 text-sm ${tx.reconciled ? "text-gray-500" : "text-gray-600"}`}>{(tx as any).categories?.name || "-"}</td>
+                      <td className={`py-3 font-semibold text-right ${tx.reconciled ? "text-green-500" : Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {Number(tx.amount) >= 0 ? "+" : ""}${Number(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-3 text-center flex gap-2 justify-end">

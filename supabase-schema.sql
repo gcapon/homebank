@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   description TEXT NOT NULL,
   amount NUMERIC(12, 2) NOT NULL,
   date DATE NOT NULL DEFAULT CURRENT_DATE,
+  reconciled BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

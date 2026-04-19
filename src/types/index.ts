@@ -17,6 +17,7 @@ export interface Transaction {
   description: string;
   amount: number;
   date: string;
+  reconciled: boolean;
   created_at: string;
   updated_at: string;
 }
