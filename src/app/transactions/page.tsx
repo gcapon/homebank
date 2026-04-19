@@ -295,7 +295,7 @@ export default function TransactionsPage() {
                 </thead>
                 <tbody>
                   {filteredTransactions.map((tx) => (
-                    <tr key={tx.id} className={`border-b border-gray-50 last:border-0 ${tx.reconciled ? "opacity-50" : ""}`}>
+                    <tr key={tx.id} className="border-b border-gray-50 last:border-0">
                       <td className="py-3">
                         <input
                           type="checkbox"
