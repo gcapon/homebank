@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import type { Account } from "@/types";
+import type { Account, Category } from "@/types";
 
 export default function ReportsPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [reportData, setReportData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
@@ -23,12 +25,25 @@ export default function ReportsPage() {
     setStartDate(firstDay.toISOString().split("T")[0]);
     setEndDate(now.toISOString().split("T")[0]);
     fetchAccounts();
+    fetchCategories();
   }, []);
 
   async function fetchAccounts() {
     if (!supabaseRef.current) return;
     const { data } = await supabaseRef.current.from("accounts").select("*").order("name");
     if (data) setAccounts(data);
+  }
+
+  async function fetchCategories() {
+    if (!supabaseRef.current) return;
+    const { data } = await supabaseRef.current.from("categories").select("*").order("name");
+    if (data) setCategories(data);
+  }
+
+  function toggleCategory(id: string) {
+    setSelectedCategories((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    );
   }
 
   function toggleAccount(id: string) {
@@ -45,6 +60,14 @@ export default function ReportsPage() {
     setSelectedAccounts([]);
   }
 
+  function selectAllCategories() {
+    setSelectedCategories(categories.map((c) => c.id));
+  }
+
+  function clearCategories() {
+    setSelectedCategories([]);
+  }
+
   async function generateReport() {
     if (!supabaseRef.current) return;
     setLoading(true);
@@ -57,6 +80,7 @@ export default function ReportsPage() {
     if (startDate) query = query.gte("date", startDate);
     if (endDate) query = query.lte("date", endDate);
     if (selectedAccounts.length > 0) query = query.in("account_id", selectedAccounts);
+    if (selectedCategories.length > 0) query = query.in("category_id", selectedCategories);
 
     const { data: transactions } = await query;
 
@@ -103,7 +127,7 @@ export default function ReportsPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
             <input
@@ -127,18 +151,8 @@ export default function ReportsPage() {
               Accounts ({selectedAccounts.length > 0 ? `${selectedAccounts.length} selected` : "All"})
             </label>
             <div className="flex gap-2 mb-2">
-              <button
-                onClick={selectAllAccounts}
-                className="text-xs text-blue-600 hover:text-blue-700"
-              >
-                Select All
-              </button>
-              <button
-                onClick={clearAccounts}
-                className="text-xs text-gray-500 hover:text-gray-700"
-              >
-                Clear
-              </button>
+              <button onClick={selectAllAccounts} className="text-xs text-blue-600 hover:text-blue-700">Select All</button>
+              <button onClick={clearAccounts} className="text-xs text-gray-500 hover:text-gray-700">Clear</button>
             </div>
             <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto border border-gray-200 rounded-lg p-2">
               {accounts.map((acc) => (
@@ -150,13 +164,32 @@ export default function ReportsPage() {
                       : "bg-gray-50 text-gray-600"
                   }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={selectedAccounts.includes(acc.id)}
-                    onChange={() => toggleAccount(acc.id)}
-                    className="mr-1"
-                  />
+                  <input type="checkbox" checked={selectedAccounts.includes(acc.id)} onChange={() => toggleAccount(acc.id)} className="mr-1" />
                   {acc.name}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="lg:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Categories ({selectedCategories.length > 0 ? `${selectedCategories.length} selected` : "All"})
+            </label>
+            <div className="flex gap-2 mb-2">
+              <button onClick={selectAllCategories} className="text-xs text-blue-600 hover:text-blue-700">Select All</button>
+              <button onClick={clearCategories} className="text-xs text-gray-500 hover:text-gray-700">Clear</button>
+            </div>
+            <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto border border-gray-200 rounded-lg p-2">
+              {categories.map((cat) => (
+                <label
+                  key={cat.id}
+                  className={`text-xs px-2 py-1 rounded cursor-pointer ${
+                    selectedCategories.includes(cat.id) || selectedCategories.length === 0
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-gray-50 text-gray-600"
+                  }`}
+                >
+                  <input type="checkbox" checked={selectedCategories.includes(cat.id)} onChange={() => toggleCategory(cat.id)} className="mr-1" />
+                  {cat.name}
                 </label>
               ))}
             </div>
