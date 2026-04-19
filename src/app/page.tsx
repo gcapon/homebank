@@ -119,7 +119,7 @@ export default async function HomePage() {
                   <div className="flex-1">
                     <p className="font-medium text-gray-800">{tx.description}</p>
                     <p className="text-xs text-gray-400">
-                      {tx.categories?.name || "Uncategorized"} • {tx.accounts?.name || "Unknown Account"} • {new Date(tx.date).toLocaleDateString()}
+                      {tx.categories?.name || "Uncategorized"} • {tx.accounts?.name || "Unknown Account"} • {tx.date}
                     </p>
                   </div>
                   <p className={`font-semibold ${Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>

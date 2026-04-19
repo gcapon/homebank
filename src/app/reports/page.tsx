@@ -203,7 +203,7 @@ export default function ReportsPage() {
                 <tbody>
                   {reportData.transactions.map((tx: any) => (
                     <tr key={tx.id} className="border-b border-gray-50 last:border-0">
-                      <td className="py-3 text-sm text-gray-600">{new Date(tx.date).toLocaleDateString()}</td>
+                      <td className="py-3 text-sm text-gray-600">{tx.date}</td>
                       <td className="py-3 font-medium text-gray-800">{tx.description}</td>
                       <td className="py-3 text-sm text-gray-600">{tx.accounts?.name || "-"}</td>
                       <td className="py-3 text-sm text-gray-600">{tx.categories?.name || "-"}</td>

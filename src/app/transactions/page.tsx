@@ -261,7 +261,7 @@ export default function TransactionsPage() {
                 <tbody>
                   {transactions.map((tx) => (
                     <tr key={tx.id} className="border-b border-gray-50 last:border-0">
-                      <td className="py-3 text-sm text-gray-600">{new Date(tx.date).toLocaleDateString()}</td>
+                      <td className="py-3 text-sm text-gray-600">{tx.date}</td>
                       <td className="py-3 font-medium text-gray-800">{tx.description}</td>
                       <td className="py-3 text-sm text-gray-600">{(tx as any).accounts?.name || "-"}</td>
                       <td className="py-3 text-sm text-gray-600">{(tx as any).categories?.name || "-"}</td>

@@ -9,6 +9,7 @@ const ACCOUNT_TYPES: AccountType[] = ["checking", "savings", "credit", "cash", "
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: "", type: "checking" as AccountType, balance: 0, currency: "USD" });
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
@@ -29,15 +30,44 @@ export default function AccountsPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!supabaseRef.current) return;
-    await supabaseRef.current.from("accounts").insert(formData);
+
+    if (editingId) {
+      await supabaseRef.current.from("accounts").update({
+        name: formData.name,
+        type: formData.type,
+        currency: formData.currency,
+        // Balance is NOT updated here — it's managed by transactions
+      }).eq("id", editingId);
+      setEditingId(null);
+    } else {
+      await supabaseRef.current.from("accounts").insert(formData);
+    }
+
     setFormData({ name: "", type: "checking", balance: 0, currency: "USD" });
     setShowForm(false);
     fetchAccounts();
   }
 
+  function startEdit(acc: Account) {
+    setEditingId(acc.id);
+    setFormData({
+      name: acc.name,
+      type: acc.type as AccountType,
+      balance: 0, // Don't expose balance editing directly
+      currency: acc.currency,
+    });
+    setShowForm(true);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setFormData({ name: "", type: "checking", balance: 0, currency: "USD" });
+    setShowForm(false);
+  }
+
   async function handleDelete(id: string) {
     if (!supabaseRef.current) return;
-    if (confirm("Delete this account?")) {
+    if (confirm("Delete this account? All transactions will be deleted too.")) {
       await supabaseRef.current.from("accounts").delete().eq("id", id);
       fetchAccounts();
     }
@@ -48,7 +78,7 @@ export default function AccountsPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-800">Accounts</h2>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { setShowForm(!showForm); setEditingId(null); }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
         >
           {showForm ? "Cancel" : "+ Add Account"}
@@ -85,16 +115,6 @@ export default function AccountsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Initial Balance</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.balance}
-                  onChange={(e) => setFormData({ ...formData, balance: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
                 <select
                   value={formData.currency}
@@ -108,9 +128,16 @@ export default function AccountsPage() {
                 </select>
               </div>
             </div>
-            <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
-              Create Account
-            </button>
+            <div className="flex gap-3">
+              <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
+                {editingId ? "Update Account" : "Create Account"}
+              </button>
+              {editingId && (
+                <button type="button" onClick={cancelEdit} className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">
+                  Cancel
+                </button>
+              )}
+            </div>
           </form>
         </div>
       )}
@@ -121,13 +148,22 @@ export default function AccountsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {accounts.map((acc) => (
                 <div key={acc.id} className="p-4 bg-gray-50 rounded-lg border border-gray-100 relative">
-                  <button
-                    onClick={() => handleDelete(acc.id)}
-                    className="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition"
-                    title="Delete account"
-                  >
-                    ✕
-                  </button>
+                  <div className="absolute top-3 right-3 flex gap-2">
+                    <button
+                      onClick={() => startEdit(acc)}
+                      className="text-gray-400 hover:text-blue-500 transition text-xs"
+                      title="Edit account"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      onClick={() => handleDelete(acc.id)}
+                      className="text-gray-400 hover:text-red-500 transition"
+                      title="Delete account"
+                    >
+                      ✕
+                    </button>
+                  </div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-2xl">
                       {acc.type === "checking" ? "🏦" : acc.type === "savings" ? "🐷" : acc.type === "credit" ? "💳" : "💵"}
