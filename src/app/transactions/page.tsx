@@ -314,10 +314,11 @@ export default function TransactionsPage() {
     ? transactions.filter((tx) => tx.account_id === selectedAccountId)
     : transactions;
 
-  // Compute running balance map for the selected account (inline, recalculates on every render)
+  // Compute running balance: sort ASCENDING to accumulate from oldest to newest, then map back to original order
   const selectedAccount = selectedAccountId ? accounts.find((a) => a.id === selectedAccountId) : null;
   const runningBalanceMap = (() => {
     if (!selectedAccountId || !selectedAccount) return new Map<string, number>();
+    // Sort ascending (oldest first) to compute running balance correctly
     const sorted = [...filteredTransactions].sort((a, b) => {
       const dc = a.date.localeCompare(b.date);
       if (dc !== 0) return dc;
