@@ -18,6 +18,7 @@ export default function ScheduledPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [daysFilter, setDaysFilter] = useState<number>(60);
   const supabase = createSupabaseClient();
 
   const [form, setForm] = useState({
@@ -144,6 +145,14 @@ export default function ScheduledPage() {
     return item.active && item.next_date <= today;
   }
 
+  function isWithinDays(item: typeof items[0], days: number) {
+    const today = new Date();
+    const itemDate = new Date(item.next_date + "T00:00:00");
+    const diffMs = itemDate.getTime() - today.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    return diffDays >= 0 && diffDays <= days;
+  }
+
   function frequencyLabel(item: typeof items[0]) {
     const int = item.interval_count || 1;
     const unit = item.frequency === "daily" ? "day" : item.frequency === "weekly" ? "week" : item.frequency === "monthly" ? "month" : "year";
@@ -159,7 +168,7 @@ export default function ScheduledPage() {
 
   const today = new Date().toISOString().split("T")[0];
   const dueItems = items.filter((i) => isDue(i));
-  const upcomingItems = items.filter((i) => !isDue(i) && i.active);
+  const upcomingItems = items.filter((i) => !isDue(i) && i.active && isWithinDays(i, daysFilter));
 
   return (
     <div className="space-y-6">
@@ -292,15 +301,40 @@ export default function ScheduledPage() {
         </div>
       )}
 
+      {/* Upcoming filter bar */}
+      <div className="flex items-center gap-4 mb-3">
+        <h3 className="text-lg font-semibold text-gray-700">Upcoming Scheduled</h3>
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+          {[
+            { label: "7 days", value: 7 },
+            { label: "30 days", value: 30 },
+            { label: "60 days", value: 60 },
+            { label: "All", value: 999 },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setDaysFilter(opt.value)}
+              className={`px-3 py-1 text-sm rounded-md transition ${
+                daysFilter === opt.value
+                  ? "bg-white shadow text-blue-600 font-medium"
+                  : "text-gray-600 hover:text-gray-800"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-sm text-gray-400">{upcomingItems.length} transactions</span>
+      </div>
+
       <div>
-        <h3 className="text-lg font-semibold text-gray-700 mb-3">All Scheduled ({items.length})</h3>
-        {items.length === 0 ? (
+        {upcomingItems.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
-            No scheduled transactions yet.
+            No upcoming scheduled transactions in the next {daysFilter === 999 ? "year" : daysFilter + " days"}.
           </div>
         ) : (
           <div className="space-y-2">
-            {items.map((item) => (
+            {upcomingItems.map((item) => (
               <div key={item.id} className={`flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border-l-4 ${isDue(item) ? "border-red-400" : item.active ? "border-green-400" : "border-gray-300"}`}>
                 <div className="flex-1 grid grid-cols-5 gap-4 items-center">
                   <div>
