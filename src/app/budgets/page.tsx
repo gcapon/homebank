@@ -506,6 +506,30 @@ export default function BudgetsPage() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr className="bg-purple-100 border-t-2 border-purple-300">
+                    <td className="py-2 text-sm font-bold text-purple-900">Total</td>
+                    {displayMonths.map((m) => {
+                      const monthKey = getMonthKey(m);
+                      const totalBudgeted = creditCardAccounts.reduce((sum, card) => sum + getCardBudget(card.id, monthKey), 0);
+                      const totalActual = creditCardAccounts.reduce((sum, card) => sum + getCardActualPaid(card.id, monthKey), 0);
+                      const hasAny = totalBudgeted > 0 || totalActual > 0;
+                      return (
+                        <td key={m} className="px-4 py-2 text-center">
+                          {hasAny ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-xs text-gray-500">Budget / Actual</span>
+                              <span className="font-bold text-purple-900">${totalBudgeted.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                              {totalActual > 0 && <span className="text-sm font-semibold text-purple-700">${totalActual.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>}
+                            </div>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
