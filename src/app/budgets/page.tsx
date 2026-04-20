@@ -404,10 +404,29 @@ export default function BudgetsPage() {
         const cardPayments = scheduled.filter((s) => s.to_account_id && creditCardAccounts.some((c) => c.id === s.to_account_id));
         if (cardPayments.length === 0) return null;
 
+        function getCardScheduledAmount(cardId: string, monthKey: string): number {
+          return cardPayments
+            .filter((s) => {
+              if (s.to_account_id !== cardId) return false;
+              return getNextOccurrenceMonth(s, monthKey) !== null;
+            })
+            .reduce((sum, s) => sum + Math.abs(Number(s.amount)), 0);
+        }
+
+        function getCardActualPaid(cardId: string, monthKey: string): number {
+          return transactions
+            .filter((t) => {
+              if (!t.transfer_id) return false;
+              if (t.account_id !== cardId) return false;
+              return t.date.startsWith(monthKey);
+            })
+            .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+        }
+
         return (
           <div className="bg-purple-50 rounded-xl border border-purple-200 p-6">
             <h3 className="font-bold text-purple-800 mb-1">💳 Credit Card Payments</h3>
-            <p className="text-xs text-purple-500 mb-4">Scheduled payments toward credit card balances</p>
+            <p className="text-xs text-purple-500 mb-4">Transfers to credit card accounts — planned vs actual</p>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -420,22 +439,26 @@ export default function BudgetsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {cardPayments.map((s) => {
-                    const toCard = creditCardAccounts.find((c) => c.id === s.to_account_id);
+                  {creditCardAccounts.map((card) => {
+                    const hasScheduled = cardPayments.some((s) => s.to_account_id === card.id);
+                    if (!hasScheduled) return null;
                     return (
-                      <tr key={s.id} className="border-b border-purple-100">
-                        <td className="py-2 text-sm font-medium text-purple-800">{toCard?.name || "—"}</td>
+                      <tr key={card.id} className="border-b border-purple-100">
+                        <td className="py-2 text-sm font-medium text-purple-800">{card.name}</td>
                         {displayMonths.map((m) => {
                           const monthKey = getMonthKey(m);
-                          const nextOcc = getNextOccurrenceMonth(s, monthKey);
+                          const budgeted = getCardScheduledAmount(card.id, monthKey);
+                          const actual = getCardActualPaid(card.id, monthKey);
+                          const hasPayment = budgeted > 0 || actual > 0;
                           return (
                             <td key={m} className="px-4 py-3 text-center">
-                              {nextOcc ? (
+                              {hasPayment ? (
                                 <div className="flex flex-col gap-0.5">
                                   <div className="text-xs text-gray-400">Budget / Actual</div>
-                                  <span className="font-semibold text-gray-700">
-                                    ${Math.abs(Number(s.amount)).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                                  </span>
+                                  <span className="font-semibold text-gray-700">${budgeted.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                  {actual > 0 && (
+                                    <span className="text-sm text-purple-700">${actual.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                  )}
                                 </div>
                               ) : (
                                 <span className="text-gray-300">—</span>
