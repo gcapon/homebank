@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import type { Category, Budget, Transaction } from "@/types";
+import type { Category, Budget, Transaction, Account, ScheduledTransaction } from "@/types";
 
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -23,6 +23,8 @@ export default function BudgetsPage() {
   const [cellValue, setCellValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [scheduled, setScheduled] = useState<ScheduledTransaction[]>([]);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
   useEffect(() => {
@@ -35,14 +37,18 @@ export default function BudgetsPage() {
 
   async function fetchData() {
     if (!supabaseRef.current) return;
-    const [catResult, budgetResult, txResult] = await Promise.all([
+    const [catResult, budgetResult, txResult, accResult, schResult] = await Promise.all([
       supabaseRef.current.from("categories").select("*").order("name"),
       supabaseRef.current.from("budgets").select("*"),
       supabaseRef.current.from("transactions").select("*"),
+      supabaseRef.current.from("accounts").select("*"),
+      supabaseRef.current.from("scheduled_transactions").select("*").eq("active", true),
     ]);
     if (catResult.data) setCategories(catResult.data);
     if (budgetResult.data) setBudgets(budgetResult.data);
     if (txResult.data) setTransactions(txResult.data);
+    if (accResult.data) setAccounts(accResult.data);
+    if (schResult.data) setScheduled(schResult.data);
   }
 
   async function saveBudget(categoryId: string, month: string, amount: number) {
@@ -369,6 +375,53 @@ export default function BudgetsPage() {
           </table>
         </div>
       </div>
+
+      {/* Scheduled Card Payments section */}
+      {(() => {
+        const creditCardAccounts = accounts.filter((a) => a.type === "credit");
+        if (creditCardAccounts.length === 0) return null;
+
+        // Filter scheduled transactions that transfer TO a credit card account
+        const cardPayments = scheduled.filter((s) => s.to_account_id && creditCardAccounts.some((c) => c.id === s.to_account_id));
+        if (cardPayments.length === 0) return null;
+
+        return (
+          <div className="bg-purple-50 rounded-xl border border-purple-200 p-6">
+            <h3 className="font-bold text-purple-800 mb-1">💳 Scheduled Card Payments</h3>
+            <p className="text-xs text-purple-500 mb-4">Upcoming cash flow to pay down credit card balances</p>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left text-sm text-purple-600 border-b border-purple-200">
+                    <th className="pb-2">From Account</th>
+                    <th className="pb-2">To Card</th>
+                    <th className="pb-2">Description</th>
+                    <th className="pb-2">Amount</th>
+                    <th className="pb-2">Next Date</th>
+                    <th className="pb-2">Frequency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cardPayments.map((s) => {
+                    const toCard = creditCardAccounts.find((c) => c.id === s.to_account_id);
+                    const fromAcc = accounts.find((a) => a.id === s.account_id);
+                    return (
+                      <tr key={s.id} className="border-b border-purple-100">
+                        <td className="py-2 text-sm text-gray-700">{fromAcc?.name || "—"}</td>
+                        <td className="py-2 text-sm font-medium text-purple-700">{toCard?.name || "—"}</td>
+                        <td className="py-2 text-sm text-gray-600">{s.description}</td>
+                        <td className="py-2 text-sm font-semibold text-gray-800">${Math.abs(Number(s.amount)).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 text-sm text-gray-600">{s.next_date}</td>
+                        <td className="py-2 text-sm text-gray-500 capitalize">{s.frequency} {s.interval_count > 1 ? `#${s.interval_count}` : ""}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
 
       <p className="text-xs text-gray-400 text-center">
         💡 Click any cell to edit. Use ↔ to copy a value to all selected months. Years and months are filtered above.
