@@ -11,6 +11,8 @@ export default function TransactionsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTransferPair, setEditingTransferPair] = useState<{ fromTx: Transaction; toTx: Transaction } | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
@@ -274,6 +276,8 @@ export default function TransactionsPage() {
     setEditingTransferPair(null);
     setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: "", memo: "", date: defaultDate });
     setShowForm(false);
+    setIsAddingCategory(false);
+    setNewCategoryName("");
     setTransactionType("expense");
   }
 
@@ -464,20 +468,69 @@ export default function TransactionsPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Category {transactionType === "income" ? "(optional)" : "(for expense)"}
                     </label>
-                    <select
-                      value={formData.category_id}
-                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">
-                        {transactionType === "income" ? "No category (income)" : "Select Category"}
-                      </option>
-                      {categories
-                        .filter((c) => transactionType === "income" ? c.type === "income" : c.type === "expense")
-                        .map((cat) => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))}
-                    </select>
+                    {isAddingCategory ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                          placeholder="New category name"
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!newCategoryName.trim()) return;
+                            const { data } = await supabaseRef.current!.from("categories").insert({
+                              name: newCategoryName.trim(),
+                              type: transactionType === "income" ? "income" : "expense",
+                            }).select().single();
+                            if (data) {
+                              setCategories((prev) => [...prev, data]);
+                              setFormData({ ...formData, category_id: data.id });
+                            }
+                            setNewCategoryName("");
+                            setIsAddingCategory(false);
+                          }}
+                          className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-sm"
+                        >
+                          Add
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setIsAddingCategory(false); setNewCategoryName(""); }}
+                          className="bg-gray-200 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-300 text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={formData.category_id}
+                          onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">
+                            {transactionType === "income" ? "No category (income)" : "Select Category"}
+                          </option>
+                          {categories
+                            .filter((c) => transactionType === "income" ? c.type === "income" : c.type === "expense")
+                            .map((cat) => (
+                              <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingCategory(true)}
+                          className="text-green-600 hover:text-green-700 text-xs whitespace-nowrap"
+                          title="Create new category"
+                        >
+                          + New
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
