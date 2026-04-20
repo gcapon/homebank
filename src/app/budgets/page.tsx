@@ -20,11 +20,13 @@ export default function BudgetsPage() {
   }
   const [selectedMonths, setSelectedMonths] = useState<number[]>(nextSix);
   const [editingCell, setEditingCell] = useState<{ categoryId: string; month: string } | null>(null);
+  const [editingCardCell, setEditingCardCell] = useState<{ accountId: string; month: string } | null>(null);
   const [cellValue, setCellValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [scheduled, setScheduled] = useState<ScheduledTransaction[]>([]);
+  const [cardBudgets, setCardBudgets] = useState<{ id: string; account_id: string; month: string; amount: number }[]>([]);
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
   useEffect(() => {
@@ -37,18 +39,20 @@ export default function BudgetsPage() {
 
   async function fetchData() {
     if (!supabaseRef.current) return;
-    const [catResult, budgetResult, txResult, accResult, schResult] = await Promise.all([
+    const [catResult, budgetResult, txResult, accResult, schResult, cbResult] = await Promise.all([
       supabaseRef.current.from("categories").select("*").order("name"),
       supabaseRef.current.from("budgets").select("*"),
       supabaseRef.current.from("transactions").select("*"),
       supabaseRef.current.from("accounts").select("*"),
       supabaseRef.current.from("scheduled_transactions").select("*").eq("active", true),
+      supabaseRef.current.from("card_budgets").select("*"),
     ]);
     if (catResult.data) setCategories(catResult.data);
     if (budgetResult.data) setBudgets(budgetResult.data);
     if (txResult.data) setTransactions(txResult.data);
     if (accResult.data) setAccounts(accResult.data);
     if (schResult.data) setScheduled(schResult.data);
+    if (cbResult.data) setCardBudgets(cbResult.data);
   }
 
   async function saveBudget(categoryId: string, month: string, amount: number) {
@@ -91,6 +95,41 @@ export default function BudgetsPage() {
   function cancelEdit() {
     setEditingCell(null);
     setCellValue("");
+  }
+
+  function startCardEdit(accountId: string, month: string, currentValue: number) {
+    setEditingCardCell({ accountId, month });
+    setCellValue(currentValue > 0 ? String(currentValue) : "");
+  }
+
+  async function saveCardBudget(accountId: string, monthStr: string) {
+    if (!supabaseRef.current) return;
+    const amount = parseFloat(cellValue) || 0;
+    const existing = cardBudgets.find((b) => b.account_id === accountId && b.month === monthStr);
+    if (existing) {
+      await supabaseRef.current.from("card_budgets").update({ amount }).eq("id", existing.id);
+      setCardBudgets((prev) => prev.map((b) => b.id === existing.id ? { ...b, amount } : b));
+    } else {
+      const { data } = await supabaseRef.current.from("card_budgets").insert({ account_id: accountId, month: monthStr, amount }).select().single();
+      if (data) setCardBudgets((prev) => [...prev, data]);
+    }
+    setEditingCardCell(null);
+    setCellValue("");
+  }
+
+  function getCardBudget(accountId: string, month: string): number {
+    const b = cardBudgets.find((c) => c.account_id === accountId && c.month === month);
+    return b ? Number(b.amount) : 0;
+  }
+
+  function getCardActualPaid(cardId: string, monthKey: string): number {
+    return transactions
+      .filter((t) => {
+        if (!t.transfer_id) return false;
+        if (t.account_id !== cardId) return false;
+        return t.date.startsWith(monthKey);
+      })
+      .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
   }
 
   function getBudget(categoryId: string, month: string): number {
@@ -401,32 +440,11 @@ export default function BudgetsPage() {
       {(() => {
         const creditCardAccounts = accounts.filter((a) => a.type === "credit");
         if (creditCardAccounts.length === 0) return null;
-        const cardPayments = scheduled.filter((s) => s.to_account_id && creditCardAccounts.some((c) => c.id === s.to_account_id));
-        if (cardPayments.length === 0) return null;
-
-        function getCardScheduledAmount(cardId: string, monthKey: string): number {
-          return cardPayments
-            .filter((s) => {
-              if (s.to_account_id !== cardId) return false;
-              return getNextOccurrenceMonth(s, monthKey) !== null;
-            })
-            .reduce((sum, s) => sum + Math.abs(Number(s.amount)), 0);
-        }
-
-        function getCardActualPaid(cardId: string, monthKey: string): number {
-          return transactions
-            .filter((t) => {
-              if (!t.transfer_id) return false;
-              if (t.account_id !== cardId) return false;
-              return t.date.startsWith(monthKey);
-            })
-            .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
-        }
 
         return (
           <div className="bg-purple-50 rounded-xl border border-purple-200 p-6">
             <h3 className="font-bold text-purple-800 mb-1">💳 Credit Card Payments</h3>
-            <p className="text-xs text-purple-500 mb-4">Transfers to credit card accounts — planned vs actual</p>
+            <p className="text-xs text-purple-500 mb-4">Monthly payment plan per card — click to edit budgeted amount</p>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -439,36 +457,54 @@ export default function BudgetsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {creditCardAccounts.map((card) => {
-                    const hasScheduled = cardPayments.some((s) => s.to_account_id === card.id);
-                    if (!hasScheduled) return null;
-                    return (
-                      <tr key={card.id} className="border-b border-purple-100">
-                        <td className="py-2 text-sm font-medium text-purple-800">{card.name}</td>
-                        {displayMonths.map((m) => {
-                          const monthKey = getMonthKey(m);
-                          const budgeted = getCardScheduledAmount(card.id, monthKey);
-                          const actual = getCardActualPaid(card.id, monthKey);
-                          const hasPayment = budgeted > 0 || actual > 0;
-                          return (
-                            <td key={m} className="px-4 py-3 text-center">
-                              {hasPayment ? (
-                                <div className="flex flex-col gap-0.5">
+                  {creditCardAccounts.map((card) => (
+                    <tr key={card.id} className="border-b border-purple-100">
+                      <td className="py-2 text-sm font-medium text-purple-800">{card.name}</td>
+                      {displayMonths.map((m) => {
+                        const monthKey = getMonthKey(m);
+                        const budgeted = getCardBudget(card.id, monthKey);
+                        const actual = getCardActualPaid(card.id, monthKey);
+                        const isEditing = editingCardCell?.accountId === card.id && editingCardCell?.month === monthKey;
+                        return (
+                          <td key={m} className="px-4 py-3 text-center">
+                            {isEditing ? (
+                              <div className="flex items-center justify-center gap-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={cellValue}
+                                  onChange={(e) => setCellValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") saveCardBudget(card.id, monthKey);
+                                    if (e.key === "Escape") { setEditingCardCell(null); setCellValue(""); }
+                                  }}
+                                  autoFocus
+                                  className="w-24 px-2 py-1 border border-purple-400 rounded text-center text-sm"
+                                />
+                                <button onClick={() => saveCardBudget(card.id, monthKey)} className="text-purple-600 hover:text-purple-700 text-xs">✓</button>
+                                <button onClick={() => { setEditingCardCell(null); setCellValue(""); }} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col gap-0.5">
+                                <div
+                                  onClick={() => startCardEdit(card.id, monthKey, budgeted)}
+                                  className="cursor-pointer hover:bg-purple-100 rounded py-0.5"
+                                >
                                   <div className="text-xs text-gray-400">Budget / Actual</div>
-                                  <span className="font-semibold text-gray-700">${budgeted.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                                  {actual > 0 && (
-                                    <span className="text-sm text-purple-700">${actual.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                                  )}
+                                  <span className="font-semibold text-gray-700">
+                                    {budgeted > 0 ? `$${budgeted.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : <span className="text-gray-300">+</span>}
+                                  </span>
                                 </div>
-                              ) : (
-                                <span className="text-gray-300">—</span>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
+                                {actual > 0 && (
+                                  <span className="text-sm text-purple-700">${actual.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

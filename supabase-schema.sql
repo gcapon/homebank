@@ -97,3 +97,14 @@ CREATE POLICY "Allow all for owner" ON scheduled_transactions FOR ALL USING (tru
 
 -- Index for finding due transactions
 CREATE INDEX IF NOT EXISTS idx_scheduled_next_date ON scheduled_transactions(next_date) WHERE active = true;
+
+-- Card budgets (payment plan per credit card account per month)
+CREATE TABLE IF NOT EXISTS card_budgets (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  account_id UUID REFERENCES accounts(id) ON DELETE CASCADE NOT NULL,
+  month VARCHAR(7) NOT NULL, -- YYYY-MM format
+  amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(account_id, month)
+);
