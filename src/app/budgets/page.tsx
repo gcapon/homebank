@@ -226,8 +226,9 @@ export default function BudgetsPage() {
                           const totalSpent = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
                           return (
                             <td key={m} className="px-4 py-2 text-center">
+                              <div className="text-xs text-gray-500 mb-1">Budget / Actual</div>
                               <div className="font-bold text-green-800">${totalBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
-                              <div className="text-xs text-green-600">${totalSpent.toLocaleString("en-US", { minimumFractionDigits: 2 })} actual</div>
+                              <div className="text-sm text-green-600">${totalSpent.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
                             </td>
                           );
                         })}
@@ -280,8 +281,9 @@ export default function BudgetsPage() {
                           const totalSpent = expenseCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "expense"), 0);
                           return (
                             <td key={m} className="px-4 py-2 text-center">
+                              <div className="text-xs text-gray-500 mb-1">Budget / Actual</div>
                               <div className="font-bold text-red-800">${totalBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
-                              <div className="text-xs text-red-600">${totalSpent.toLocaleString("en-US", { minimumFractionDigits: 2 })} actual</div>
+                              <div className="text-sm text-red-600">${totalSpent.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
                             </td>
                           );
                         })}
