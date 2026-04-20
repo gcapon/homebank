@@ -24,6 +24,7 @@ export async function POST(request: Request) {
   const amountCol = formData.get('amountCol') as string;
   const typeCol = formData.get('typeCol') as string;
   const memoCol = formData.get('memoCol') as string;
+  const catCol = formData.get('catCol') as string;
 
   if (!file || !dateCol || !descCol || !amountCol) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
     const description = String(row[descCol] || '').trim();
     const txType = typeCol ? String(row[typeCol] || '').toLowerCase().trim() : 'income';
     const memo = memoCol ? String(row[memoCol] || '').trim() : '';
+    const rawCategory = catCol ? String(row[catCol] || '').trim() : '';
 
     let date = dateStr;
     const parsed = new Date(dateStr);
@@ -108,13 +110,32 @@ export async function POST(request: Request) {
       continue;
     }
 
-    // Resolve category (match by description keyword or default)
+    // Resolve category: explicit column → match by name → auto-create
     let categoryId: string | null = null;
-    const descLower = description.toLowerCase();
-    for (const [catName, catId] of categoryMap.entries()) {
-      if (descLower.includes(catName)) {
-        categoryId = catId;
-        break;
+    if (rawCategory) {
+      const catKey = rawCategory.toLowerCase();
+      if (categoryMap.has(catKey)) {
+        categoryId = categoryMap.get(catKey)!;
+      } else {
+        // Auto-create category with type matching the transaction direction
+        const catType = finalAmount >= 0 ? 'income' : 'expense';
+        const { data: newCat } = await supabase
+          .from('categories')
+          .insert({ name: rawCategory, type: catType })
+          .select('id').single();
+        if (newCat && newCat.id) {
+          categoryId = newCat.id;
+          categoryMap.set(catKey, newCat.id);
+        }
+      }
+    } else {
+      // No category column — fall back to description keyword match
+      const descLower = description.toLowerCase();
+      for (const [catName, catId] of categoryMap.entries()) {
+        if (descLower.includes(catName)) {
+          categoryId = catId;
+          break;
+        }
       }
     }
 
