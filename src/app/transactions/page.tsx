@@ -368,6 +368,24 @@ export default function TransactionsPage() {
               </option>
             ))}
           </select>
+          {selectedAccountId && (
+            <button
+              type="button"
+              onClick={async () => {
+                if (!supabaseRef.current) return;
+                await fetch('/api/accounts/recalculate', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ accountId: selectedAccountId }),
+                });
+                fetchData();
+              }}
+              className="text-xs text-gray-400 hover:text-blue-600 underline"
+              title="Recalculate balance from transactions"
+            >
+              Recalculate
+            </button>
+          )}
         </div>
         <button
           onClick={() => {
