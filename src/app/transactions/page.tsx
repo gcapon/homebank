@@ -381,157 +381,172 @@ export default function TransactionsPage() {
         </button>
       </div>
 
+      {/* Modal Form Overlay */}
       {showForm && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {editingTransferPair && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
-                📋 You're editing both sides of this transfer. Changes apply to both the From and To accounts.
-              </div>
-            )}
-            {/* Type selector */}
-            <div className="flex gap-2 mb-2">
-              {(["expense", "income", "transfer"] as TxType[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => { setTransactionType(t); }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                    transactionType === t
-                      ? t === "expense" ? "bg-red-100 text-red-700 border-2 border-red-300"
-                        : t === "income" ? "bg-green-100 text-green-700 border-2 border-green-300"
-                        : "bg-blue-100 text-blue-700 border-2 border-blue-300"
-                      : "bg-gray-50 text-gray-600 border-2 border-transparent hover:bg-gray-100"
-                  }`}
-                >
-                  {t === "expense" ? "💸 Expense" : t === "income" ? "💰 Income" : "↔️ Transfer/Payment"}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {transactionType === "transfer" ? "From Account" : "Account"}
-                </label>
-                <select
-                  value={formData.account_id}
-                  onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="">Select Account</option>
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>{acc.name}</option>
-                  ))}
-                </select>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => cancelEdit()} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+            <button
+              type="button"
+              onClick={() => cancelEdit()}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl leading-none"
+            >
+              &times;
+            </button>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {editingTransferPair && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+                  📋 You're editing both sides of this transfer. Changes apply to both accounts.
+                </div>
+              )}
+              {editingId && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+                  ✏️ Editing transaction
+                </div>
+              )}
+              {/* Type selector */}
+              <div className="flex gap-2 mb-2">
+                {(["expense", "income", "transfer"] as TxType[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => { setTransactionType(t); }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                      transactionType === t
+                        ? t === "expense" ? "bg-red-100 text-red-700 border-2 border-red-300"
+                          : t === "income" ? "bg-green-100 text-green-700 border-2 border-green-300"
+                          : "bg-blue-100 text-blue-700 border-2 border-blue-300"
+                        : "bg-gray-50 text-gray-600 border-2 border-transparent hover:bg-gray-100"
+                    }`}
+                  >
+                    {t === "expense" ? "💸 Expense" : t === "income" ? "💰 Income" : "↔️ Transfer"}
+                  </button>
+                ))}
               </div>
 
-              {transactionType === "transfer" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">To Account</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {transactionType === "transfer" ? "From Account" : "Account"}
+                  </label>
                   <select
-                    value={formData.to_account_id}
-                    onChange={(e) => setFormData({ ...formData, to_account_id: e.target.value })}
+                    value={formData.account_id}
+                    onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
                   >
                     <option value="">Select Account</option>
-                    {accounts.filter((a) => a.id !== formData.account_id).map((acc) => (
+                    {accounts.map((acc) => (
                       <option key={acc.id} value={acc.id}>{acc.name}</option>
                     ))}
                   </select>
                 </div>
-              )}
 
-              {transactionType !== "transfer" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category {transactionType === "income" ? "(optional)" : "(for expense)"}
-                  </label>
-                  <select
-                    value={formData.category_id}
-                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">
-                      {transactionType === "income" ? "No category (income)" : "Select Category"}
-                    </option>
-                    {categories
-                      .filter((c) => transactionType === "income" ? c.type === "income" : c.type === "expense")
-                      .map((cat) => (
-                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                {transactionType === "transfer" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">To Account</label>
+                    <select
+                      value={formData.to_account_id}
+                      onChange={(e) => setFormData({ ...formData, to_account_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Select Account</option>
+                      {accounts.filter((a) => a.id !== formData.account_id).map((acc) => (
+                        <option key={acc.id} value={acc.id}>{acc.name}</option>
                       ))}
-                  </select>
+                    </select>
+                  </div>
+                )}
+
+                {transactionType !== "transfer" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Category {transactionType === "income" ? "(optional)" : "(for expense)"}
+                    </label>
+                    <select
+                      value={formData.category_id}
+                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">
+                        {transactionType === "income" ? "No category (income)" : "Select Category"}
+                      </option>
+                      {categories
+                        .filter((c) => transactionType === "income" ? c.type === "income" : c.type === "expense")
+                        .map((cat) => (
+                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Payee</label>
+                  <input
+                    type="text"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder={
+                      transactionType === "expense" ? "Grocery shopping"
+                        : transactionType === "income" ? "Paycheck"
+                        : "Credit card payment"
+                    }
+                    required
+                  />
                 </div>
-              )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Payee</label>
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder={
-                    transactionType === "expense" ? "Grocery shopping"
-                      : transactionType === "income" ? "Paycheck"
-                      : "Credit card payment"
-                  }
-                  required
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Memo / Notes (optional)</label>
+                  <input
+                    type="text"
+                    value={formData.memo}
+                    onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Extra notes..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.amount}
+                    placeholder="0.00"
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Memo / Notes (optional)</label>
-                <input
-                  type="text"
-                  value={formData.memo}
-                  onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Extra notes..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  placeholder="0.00"
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
-                {editingTransferPair ? "Update Transfer" : editingId ? "Update Transaction" : "Add Transaction"}
-              </button>
-              {(editingId || editingTransferPair) && (
+              <div className="flex gap-3 pt-2">
+                <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
+                  {editingTransferPair ? "Update Transfer" : editingId ? "Update Transaction" : "Add Transaction"}
+                </button>
                 <button type="button" onClick={cancelEdit} className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">
                   Cancel
                 </button>
-              )}
-            </div>
-          </form>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
+      {/* Table — always visible */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="p-6">
           {displayTransactions.length > 0 ? (
@@ -581,7 +596,7 @@ export default function TransactionsPage() {
                         </td>
                       )}
                       <td className="py-3 text-right">
-                        <button onClick={() => startEdit(tx)} className="text-blue-400 hover:text-blue-600 text-xs mr-3">Edit</button>
+                        <button onClick={() => startEdit(tx)} className="text-blue-400 hover:text-blue-600 text-xs mr-3">✏️ Edit</button>
                         <button onClick={() => handleDelete(tx.id)} className="text-gray-400 hover:text-red-500 text-xs">✕</button>
                       </td>
                     </tr>
