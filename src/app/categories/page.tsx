@@ -7,6 +7,7 @@ import type { Category } from "@/types";
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: "", type: "expense" as "income" | "expense", parent_id: "" });
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
@@ -24,13 +25,30 @@ export default function CategoriesPage() {
     if (data) setCategories(data);
   }
 
+  function startEdit(cat: Category) {
+    setEditingId(cat.id);
+    setFormData({ name: cat.name, type: cat.type, parent_id: cat.parent_id || "" });
+    setShowForm(true);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!supabaseRef.current) return;
-    await supabaseRef.current.from("categories").insert({ ...formData, parent_id: formData.parent_id || null });
+    if (editingId) {
+      await supabaseRef.current.from("categories").update({ name: formData.name, type: formData.type, parent_id: formData.parent_id || null }).eq("id", editingId);
+      setEditingId(null);
+    } else {
+      await supabaseRef.current.from("categories").insert({ ...formData, parent_id: formData.parent_id || null });
+    }
     setFormData({ name: "", type: "expense", parent_id: "" });
     setShowForm(false);
     fetchCategories();
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setFormData({ name: "", type: "expense", parent_id: "" });
+    setShowForm(false);
   }
 
   async function handleDelete(id: string) {
@@ -49,7 +67,11 @@ export default function CategoriesPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-800">Categories</h2>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            setShowForm(!showForm);
+            setEditingId(null);
+            setFormData({ name: "", type: "expense", parent_id: "" });
+          }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
         >
           {showForm ? "Cancel" : "+ Add Category"}
@@ -59,6 +81,11 @@ export default function CategoriesPage() {
       {showForm && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {editingId && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+                ✏️ Editing category
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
@@ -90,15 +117,24 @@ export default function CategoriesPage() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">None</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
+                  {categories
+                    .filter((c) => c.id !== editingId)
+                    .map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
                 </select>
               </div>
             </div>
-            <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
-              Create Category
-            </button>
+            <div className="flex gap-3">
+              <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
+                {editingId ? "Update Category" : "Create Category"}
+              </button>
+              {editingId && (
+                <button type="button" onClick={cancelEdit} className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">
+                  Cancel
+                </button>
+              )}
+            </div>
           </form>
         </div>
       )}
@@ -116,7 +152,10 @@ export default function CategoriesPage() {
                 {incomeCategories.map((cat) => (
                   <div key={cat.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <span className="font-medium text-gray-800">{cat.name}</span>
-                    <button onClick={() => handleDelete(cat.id)} className="text-gray-400 hover:text-red-500 transition">✕</button>
+                    <div className="flex gap-2">
+                      <button onClick={() => startEdit(cat)} className="text-blue-400 hover:text-blue-600 text-xs">✏️</button>
+                      <button onClick={() => handleDelete(cat.id)} className="text-gray-400 hover:text-red-500 transition">✕</button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -138,7 +177,10 @@ export default function CategoriesPage() {
                 {expenseCategories.map((cat) => (
                   <div key={cat.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <span className="font-medium text-gray-800">{cat.name}</span>
-                    <button onClick={() => handleDelete(cat.id)} className="text-gray-400 hover:text-red-500 transition">✕</button>
+                    <div className="flex gap-2">
+                      <button onClick={() => startEdit(cat)} className="text-blue-400 hover:text-blue-600 text-xs">✏️</button>
+                      <button onClick={() => handleDelete(cat.id)} className="text-gray-400 hover:text-red-500 transition">✕</button>
+                    </div>
                   </div>
                 ))}
               </div>
