@@ -219,7 +219,18 @@ export default function BudgetsPage() {
                   {incomeCategories.length > 0 && (
                     <>
                       <tr className="bg-green-50 border-b-2 border-green-200">
-                        <td className="px-4 py-2 font-bold text-green-700 sticky left-0 bg-green-50 z-10" colSpan={displayMonths.length + 1}>📈 INCOME</td>
+                        <td className="px-4 py-2 font-bold text-green-700 sticky left-0 bg-green-50 z-10" colSpan={1}>📈 INCOME</td>
+                        {displayMonths.map((m) => {
+                          const monthKey = getMonthKey(m);
+                          const totalBudget = incomeCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                          const totalSpent = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
+                          return (
+                            <td key={m} className="px-4 py-2 text-center">
+                              <div className="font-bold text-green-800">${totalBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                              <div className="text-xs text-green-600">${totalSpent.toLocaleString("en-US", { minimumFractionDigits: 2 })} actual</div>
+                            </td>
+                          );
+                        })}
                       </tr>
                       {incomeCategories.map((cat) => (
                         <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50">
@@ -262,7 +273,18 @@ export default function BudgetsPage() {
                   {expenseCategories.length > 0 && (
                     <>
                       <tr className="bg-red-50 border-b-2 border-red-200">
-                        <td className="px-4 py-2 font-bold text-red-700 sticky left-0 bg-red-50 z-10" colSpan={displayMonths.length + 1}>📉 EXPENSES</td>
+                        <td className="px-4 py-2 font-bold text-red-700 sticky left-0 bg-red-50 z-10" colSpan={1}>📉 EXPENSES</td>
+                        {displayMonths.map((m) => {
+                          const monthKey = getMonthKey(m);
+                          const totalBudget = expenseCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                          const totalSpent = expenseCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "expense"), 0);
+                          return (
+                            <td key={m} className="px-4 py-2 text-center">
+                              <div className="font-bold text-red-800">${totalBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                              <div className="text-xs text-red-600">${totalSpent.toLocaleString("en-US", { minimumFractionDigits: 2 })} actual</div>
+                            </td>
+                          );
+                        })}
                       </tr>
                       {expenseCategories.map((cat) => (
                         <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50">
