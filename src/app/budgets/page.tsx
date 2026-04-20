@@ -512,6 +512,79 @@ export default function BudgetsPage() {
         );
       })()}
 
+      {/* Cash Flow section */}
+      {(() => {
+        const ccAccounts = accounts.filter((a) => a.type === "credit");
+        function cardBudgetedForMonth(cardId: string, monthKey: string) {
+          const b = cardBudgets.find((c) => c.account_id === cardId && c.month === monthKey);
+          return b ? Number(b.amount) : 0;
+        }
+        function cardActualForMonth(cardId: string, monthKey: string) {
+          return transactions
+            .filter((t) => { if (!t.transfer_id) return false; if (t.account_id !== cardId) return false; return t.date.startsWith(monthKey); })
+            .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+        }
+
+        return (
+          <div className="bg-gray-100 rounded-xl border border-gray-300 p-6">
+            <h3 className="font-bold text-gray-800 mb-1">💰 Cash Flow</h3>
+            <p className="text-xs text-gray-500 mb-4">Income − Expenses − Credit Card Payments</p>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-center text-sm text-gray-600 border-b border-gray-300">
+                    <th className="pb-2 text-left pr-4">Net</th>
+                    {displayMonths.map((m) => {
+                      const label = `${MONTHS[m]} ${selectedYear}`;
+                      return <th key={m} className="px-2 pb-2">{label}</th>;
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 text-sm font-semibold text-gray-700">Budgeted</td>
+                    {displayMonths.map((m) => {
+                      const monthKey = getMonthKey(m);
+                      const incomeBudgeted = incomeCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                      const expenseBudgeted = expenseCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                      const cardBudgeted = ccAccounts.reduce((sum, card) => sum + cardBudgetedForMonth(card.id, monthKey), 0);
+                      const net = incomeBudgeted - expenseBudgeted - cardBudgeted;
+                      return (
+                        <td key={m} className="px-4 py-3 text-center">
+                          <div className="flex flex-col gap-0.5">
+                            <div className="text-xs text-gray-400">Budget / Actual</div>
+                            <span className={`font-semibold ${net >= 0 ? "text-green-600" : "text-red-600"}`}>
+                              {net !== 0 ? `$${Math.abs(net).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : <span className="text-gray-300">—</span>}
+                            </span>
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr>
+                    <td className="py-2 text-sm font-semibold text-gray-700">Actual</td>
+                    {displayMonths.map((m) => {
+                      const monthKey = getMonthKey(m);
+                      const incomeActual = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
+                      const expenseActual = expenseCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "expense"), 0);
+                      const cardActual = ccAccounts.reduce((sum, card) => sum + cardActualForMonth(card.id, monthKey), 0);
+                      const net = incomeActual - expenseActual - cardActual;
+                      return (
+                        <td key={m} className="px-4 py-3 text-center">
+                          <span className={`text-sm font-semibold ${net >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {net !== 0 ? `$${Math.abs(net).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : <span className="text-gray-300">—</span>}
+                          </span>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
       <p className="text-xs text-gray-400 text-center">
         💡 Click any cell to edit. Use ↔ to copy a value to all selected months. Years and months are filtered above.
       </p>
