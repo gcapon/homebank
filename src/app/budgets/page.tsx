@@ -557,7 +557,7 @@ export default function BudgetsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="text-center text-sm text-gray-600 border-b border-gray-300">
-                    <th className="pb-2 text-left pr-4">Net</th>
+                    <th className="pb-2 text-left pr-4"></th>
                     {displayMonths.map((m) => {
                       const label = `${MONTHS[m]} ${selectedYear}`;
                       return <th key={m} className="px-2 pb-2">{label}</th>;
@@ -565,39 +565,101 @@ export default function BudgetsPage() {
                   </tr>
                 </thead>
                 <tbody>
+                  {/* Income row */}
                   <tr className="border-b border-gray-200">
-                    <td className="py-2 text-sm font-semibold text-gray-700">Budgeted</td>
+                    <td className="py-2 text-sm font-medium text-green-700">Income</td>
+                    {displayMonths.map((m) => {
+                      const monthKey = getMonthKey(m);
+                      const incomeBudgeted = incomeCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                      const incomeActual = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
+                      const hasAny = incomeBudgeted > 0 || incomeActual > 0;
+                      return (
+                        <td key={m} className="px-4 py-3 text-center">
+                          {hasAny ? (
+                            <div className="flex flex-col gap-0.5">
+                              <div className="text-xs text-gray-400">Budget / Actual</div>
+                              <span className="font-semibold text-green-600">${incomeBudgeted.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                              {incomeActual > 0 && <span className="text-sm text-green-700">${incomeActual.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>}
+                            </div>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  {/* Expenses row */}
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 text-sm font-medium text-red-700">Expenses</td>
+                    {displayMonths.map((m) => {
+                      const monthKey = getMonthKey(m);
+                      const expenseBudgeted = expenseCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                      const expenseActual = expenseCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "expense"), 0);
+                      const hasAny = expenseBudgeted > 0 || expenseActual > 0;
+                      return (
+                        <td key={m} className="px-4 py-3 text-center">
+                          {hasAny ? (
+                            <div className="flex flex-col gap-0.5">
+                              <div className="text-xs text-gray-400">Budget / Actual</div>
+                              <span className="font-semibold text-red-600">${expenseBudgeted.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                              {expenseActual > 0 && <span className="text-sm text-red-700">${expenseActual.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>}
+                            </div>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  {/* Credit Card Payments row */}
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 text-sm font-medium text-purple-700">CC Payments</td>
+                    {displayMonths.map((m) => {
+                      const monthKey = getMonthKey(m);
+                      const cardBudgeted = ccAccounts.reduce((sum, card) => sum + cardBudgetedForMonth(card.id, monthKey), 0);
+                      const cardActual = ccAccounts.reduce((sum, card) => sum + cardActualForMonth(card.id, monthKey), 0);
+                      const hasAny = cardBudgeted > 0 || cardActual > 0;
+                      return (
+                        <td key={m} className="px-4 py-3 text-center">
+                          {hasAny ? (
+                            <div className="flex flex-col gap-0.5">
+                              <div className="text-xs text-gray-400">Budget / Actual</div>
+                              <span className="font-semibold text-purple-600">${cardBudgeted.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                              {cardActual > 0 && <span className="text-sm text-purple-700">${cardActual.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>}
+                            </div>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  {/* Net row */}
+                  <tr className="bg-blue-50 border-t-2 border-blue-300">
+                    <td className="py-2 text-sm font-bold text-blue-900">Net</td>
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
                       const incomeBudgeted = incomeCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
                       const expenseBudgeted = expenseCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
                       const cardBudgeted = ccAccounts.reduce((sum, card) => sum + cardBudgetedForMonth(card.id, monthKey), 0);
-                      const net = incomeBudgeted - expenseBudgeted - cardBudgeted;
+                      const netBudgeted = incomeBudgeted - expenseBudgeted - cardBudgeted;
+                      const incomeActual = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
+                      const expenseActual = expenseCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "expense"), 0);
+                      const cardActual = ccAccounts.reduce((sum, card) => sum + cardActualForMonth(card.id, monthKey), 0);
+                      const netActual = incomeActual - expenseActual - cardActual;
                       return (
                         <td key={m} className="px-4 py-3 text-center">
                           <div className="flex flex-col gap-0.5">
                             <div className="text-xs text-gray-400">Budget / Actual</div>
-                            <span className={`font-semibold ${net >= 0 ? "text-green-600" : "text-red-600"}`}>
-                              {net !== 0 ? `$${Math.abs(net).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : <span className="text-gray-300">—</span>}
+                            <span className={`font-bold ${netBudgeted >= 0 ? "text-green-600" : "text-red-600"}`}>
+                              {netBudgeted !== 0 ? `$${Math.abs(netBudgeted).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "—"}
                             </span>
+                            {netActual !== 0 && (
+                              <span className={`text-sm font-semibold ${netActual >= 0 ? "text-green-700" : "text-red-700"}`}>
+                                ${Math.abs(netActual).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                              </span>
+                            )}
                           </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                  <tr>
-                    <td className="py-2 text-sm font-semibold text-gray-700">Actual</td>
-                    {displayMonths.map((m) => {
-                      const monthKey = getMonthKey(m);
-                      const incomeActual = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
-                      const expenseActual = expenseCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "expense"), 0);
-                      const cardActual = ccAccounts.reduce((sum, card) => sum + cardActualForMonth(card.id, monthKey), 0);
-                      const net = incomeActual - expenseActual - cardActual;
-                      return (
-                        <td key={m} className="px-4 py-3 text-center">
-                          <span className={`text-sm font-semibold ${net >= 0 ? "text-green-600" : "text-red-600"}`}>
-                            {net !== 0 ? `$${Math.abs(net).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : <span className="text-gray-300">—</span>}
-                          </span>
                         </td>
                       );
                     })}
