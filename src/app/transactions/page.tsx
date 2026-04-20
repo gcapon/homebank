@@ -364,7 +364,7 @@ export default function TransactionsPage() {
             <option value="">All Accounts</option>
             {accounts.map((acc) => (
               <option key={acc.id} value={acc.id}>
-                {acc.name} (${Number(acc.balance).toLocaleString("en-US", { minimumFractionDigits: 2 })})
+                {acc.name} (${(Number(acc.balance) + Number(acc.opening_balance || 0)).toLocaleString("en-US", { minimumFractionDigits: 2 })})
               </option>
             ))}
           </select>
