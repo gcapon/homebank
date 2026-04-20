@@ -121,6 +121,27 @@ export default function BudgetsPage() {
   }
 
   
+  function getNextOccurrenceMonth(s: ScheduledTransaction, monthKey: string): string | null {
+    // Returns the next occurrence date that falls within the given month (YYYY-MM)
+    let d = new Date(s.next_date + "T00:00:00");
+    const freq = s.frequency || "monthly";
+    const interval = s.interval_count || 1;
+    let tries = 0;
+    while (tries < 366) {
+      const dKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (dKey === monthKey) return s.next_date;
+      if (d > new Date(`${monthKey}-31`)) return null;
+      // Advance
+      if (freq === "daily") d.setDate(d.getDate() + interval);
+      else if (freq === "weekly") d.setDate(d.getDate() + 7 * interval);
+      else if (freq === "monthly") d.setMonth(d.getMonth() + interval);
+      else if (freq === "yearly") d.setFullYear(d.getFullYear() + interval);
+      else d.setMonth(d.getMonth() + interval);
+      tries++;
+    }
+    return null;
+  }
+
   function getMonthKey(monthIndex: number): string {
     return `${selectedYear}-${String(monthIndex + 1).padStart(2, "0")}`;
   }
@@ -376,43 +397,52 @@ export default function BudgetsPage() {
         </div>
       </div>
 
-      {/* Scheduled Card Payments section */}
+      {/* Credit Card Payments section */}
       {(() => {
         const creditCardAccounts = accounts.filter((a) => a.type === "credit");
         if (creditCardAccounts.length === 0) return null;
-
-        // Filter scheduled transactions that transfer TO a credit card account
         const cardPayments = scheduled.filter((s) => s.to_account_id && creditCardAccounts.some((c) => c.id === s.to_account_id));
         if (cardPayments.length === 0) return null;
 
         return (
           <div className="bg-purple-50 rounded-xl border border-purple-200 p-6">
-            <h3 className="font-bold text-purple-800 mb-1">💳 Scheduled Card Payments</h3>
-            <p className="text-xs text-purple-500 mb-4">Upcoming cash flow to pay down credit card balances</p>
+            <h3 className="font-bold text-purple-800 mb-1">💳 Credit Card Payments</h3>
+            <p className="text-xs text-purple-500 mb-4">Scheduled payments toward credit card balances</p>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="text-left text-sm text-purple-600 border-b border-purple-200">
-                    <th className="pb-2">From Account</th>
-                    <th className="pb-2">To Card</th>
-                    <th className="pb-2">Description</th>
-                    <th className="pb-2">Amount</th>
-                    <th className="pb-2">Next Date</th>
-                    <th className="pb-2">Frequency</th>
+                  <tr className="text-center text-sm text-purple-600 border-b border-purple-200">
+                    <th className="pb-2 text-left pr-4">Card</th>
+                    {displayMonths.map((m) => {
+                      const label = `${MONTHS[m]} ${selectedYear}`;
+                      return <th key={m} className="px-2 pb-2">{label}</th>;
+                    })}
                   </tr>
                 </thead>
                 <tbody>
                   {cardPayments.map((s) => {
                     const toCard = creditCardAccounts.find((c) => c.id === s.to_account_id);
-                    const fromAcc = accounts.find((a) => a.id === s.account_id);
                     return (
                       <tr key={s.id} className="border-b border-purple-100">
-                        <td className="py-2 text-sm text-gray-700">{fromAcc?.name || "—"}</td>
-                        <td className="py-2 text-sm font-medium text-purple-700">{toCard?.name || "—"}</td>
-                        <td className="py-2 text-sm text-gray-600">{s.description}</td>
-                        <td className="py-2 text-sm font-semibold text-gray-800">${Math.abs(Number(s.amount)).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
-                        <td className="py-2 text-sm text-gray-600">{s.next_date}</td>
-                        <td className="py-2 text-sm text-gray-500 capitalize">{s.frequency} {s.interval_count > 1 ? `#${s.interval_count}` : ""}</td>
+                        <td className="py-2 text-sm font-medium text-purple-800">{toCard?.name || "—"}</td>
+                        {displayMonths.map((m) => {
+                          const monthKey = getMonthKey(m);
+                          const nextOcc = getNextOccurrenceMonth(s, monthKey);
+                          return (
+                            <td key={m} className="px-4 py-3 text-center">
+                              {nextOcc ? (
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="text-xs text-gray-400">Budget / Actual</div>
+                                  <span className="font-semibold text-gray-700">
+                                    ${Math.abs(Number(s.amount)).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                          );
+                        })}
                       </tr>
                     );
                   })}
