@@ -16,6 +16,7 @@ export default function TransactionsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTransferPair, setEditingTransferPair] = useState<{ fromTx: Transaction; toTx: Transaction } | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+  const [defaultSet, setDefaultSet] = useState(false);
   const [transactionType, setTransactionType] = useState<TxType>("expense");
   const today = new Date();
   const yyyy = today.getFullYear();
@@ -50,7 +51,15 @@ export default function TransactionsPage() {
       supabaseRef.current.from("categories").select("*").order("name"),
     ]);
     if (txResult.data) setTransactions(txResult.data);
-    if (accResult.data) setAccounts(accResult.data);
+    if (accResult.data) {
+      setAccounts(accResult.data);
+      // Default to 'checking' account on first load
+      if (!defaultSet) {
+        const checking = accResult.data.find((a: Account) => a.name === "Checking");
+        if (checking) setSelectedAccountId(checking.id);
+        setDefaultSet(true);
+      }
+    }
     if (catResult.data) setCategories(catResult.data);
   }
 
@@ -354,8 +363,13 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <h2 className="text-2xl font-bold text-gray-800">Transactions</h2>
+          {selectedAccount && (
+            <span className="text-lg font-semibold text-blue-600">{selectedAccount.name}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
           <select
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value)}
@@ -364,7 +378,7 @@ export default function TransactionsPage() {
             <option value="">All Accounts</option>
             {accounts.map((acc) => (
               <option key={acc.id} value={acc.id}>
-                {acc.name} (${(Number(acc.balance) + Number(acc.opening_balance || 0)).toLocaleString("en-US", { minimumFractionDigits: 2 })})
+                {acc.name}
               </option>
             ))}
           </select>

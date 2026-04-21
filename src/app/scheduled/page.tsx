@@ -22,6 +22,12 @@ export default function ScheduledPage() {
   const [daysFilter, setDaysFilter] = useState<number>(60);
   const supabase = createSupabaseClient();
 
+  // Post modal state
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [postModalItem, setPostModalItem] = useState<typeof items[0] | null>(null);
+  const [postModalOccurrenceDate, setPostModalOccurrenceDate] = useState<string>("");
+  const [postForm, setPostForm] = useState({ description: "", amount: "", memo: "" });
+
   const [form, setForm] = useState({
     account_id: "",
     to_account_id: "",
@@ -111,17 +117,12 @@ export default function ScheduledPage() {
   }
 
   async function handlePostOccurrence(id: string, occurrenceDate: string) {
-    const res = await fetch("/api/scheduled", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "post", id, occurrence_date: occurrenceDate }),
-    });
-    if (res.ok) {
-      fetchData();
-    } else {
-      const err = await res.json().catch(() => ({ error: "Unknown error" }));
-      alert("Failed to post: " + err.error);
-    }
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    setPostModalItem(item);
+    setPostModalOccurrenceDate(occurrenceDate);
+    setPostForm({ description: item.description, amount: String(Math.abs(Number(item.amount))), memo: item.memo || "" });
+    setShowPostModal(true);
   }
 
   async function handleSkipOccurrence(id: string, occurrenceDate: string) {
@@ -139,11 +140,31 @@ export default function ScheduledPage() {
   }
 
   async function handlePost(id: string) {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    setPostModalItem(item);
+    setPostModalOccurrenceDate("");
+    setPostForm({ description: item.description, amount: String(Math.abs(Number(item.amount))), memo: item.memo || "" });
+    setShowPostModal(true);
+  }
+
+  async function handleConfirmPost() {
+    if (!postModalItem) return;
     const res = await fetch("/api/scheduled", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "post", id }),
+      body: JSON.stringify({
+        action: "post",
+        id: postModalItem.id,
+        occurrence_date: postModalOccurrenceDate || undefined,
+        // Override fields for this occurrence only
+        description: postForm.description,
+        amount: postForm.amount,
+        memo: postForm.memo,
+      }),
     });
+    setShowPostModal(false);
+    setPostModalItem(null);
     if (res.ok) {
       fetchData();
     } else {
@@ -451,7 +472,7 @@ export default function ScheduledPage() {
                   </div>
                   <div className="text-right font-semibold text-gray-700">${Math.abs(Number(item.amount)).toFixed(2)}</div>
                   <div className="text-xs text-gray-500">{frequencyLabel(item)}</div>
-                  <div className="text-xs text-red-500">Due: {item.next_date}</div>
+                  <div className="text-base text-red-500 font-semibold">Due: {item.next_date}</div>
                 </div>
                 <div className="flex gap-2 ml-4">
                   <button onClick={() => handlePost(item.id)} className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">Post</button>
@@ -461,6 +482,96 @@ export default function ScheduledPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Post Confirmation Modal */}
+      {showPostModal && postModalItem && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 shadow-xl w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Confirm Post</h3>
+            <div className="space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">Account</span>
+                  <span className="text-sm font-medium text-gray-800">{postModalItem.accounts?.name}</span>
+                </div>
+                {postModalItem.to_account_id && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">To Account</span>
+                    <span className="text-sm font-medium text-gray-800">{postModalItem.to_account?.name}</span>
+                  </div>
+                )}
+                {postModalItem.category_id && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">Category</span>
+                    <span className="text-sm font-medium text-gray-800">{postModalItem.categories?.name}</span>
+                  </div>
+                )}
+                {postModalOccurrenceDate && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">Date</span>
+                    <span className="text-sm font-medium text-gray-800">{postModalOccurrenceDate}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t pt-2 mt-2">
+                  <span className="text-sm text-gray-500">Amount</span>
+                  <span className="text-lg font-bold text-gray-800">${postForm.amount}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Description</label>
+                <input
+                  type="text"
+                  value={postForm.description}
+                  onChange={e => setPostForm({ ...postForm, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Amount</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={postForm.amount}
+                  onChange={e => setPostForm({ ...postForm, amount: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Memo (optional)</label>
+                <input
+                  type="text"
+                  value={postForm.memo}
+                  onChange={e => setPostForm({ ...postForm, memo: e.target.value })}
+                  placeholder="Add a note for this occurrence only"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <p className="text-xs text-gray-400">
+                Only edits this occurrence. The scheduled transaction remains unchanged for future dates.
+              </p>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleConfirmPost}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+              >
+                Post Transaction
+              </button>
+              <button
+                onClick={() => { setShowPostModal(false); setPostModalItem(null); }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -507,7 +618,7 @@ export default function ScheduledPage() {
                   </div>
                   <div className="text-right font-semibold text-gray-700">${Math.abs(Number(item.amount)).toFixed(2)}</div>
                   <div className="text-xs text-gray-500">{frequencyLabel(item)}</div>
-                  <div className="text-xs text-blue-600 font-medium">{item.occurrenceDate}</div>
+                  <div className="text-base text-blue-600 font-semibold">{item.occurrenceDate}</div>
                   <div className="text-xs text-gray-400">
                     {item.auto_post ? "🔁 Auto" : "👆 Manual"} · {item.post_count} posted
                     {item.max_posts ? ` / ${item.max_posts}` : ""}

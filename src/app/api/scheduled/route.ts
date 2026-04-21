@@ -20,9 +20,10 @@ export async function POST(req: Request) {
   // If action is "post" or "skip", handle specially
   if (body.action === "post" || body.action === "skip") {
     const { id, action } = body;
+    // Use explicit foreign key column to avoid ambiguous embed (both account_id and to_account_id point to accounts)
     const sched = await supabase
       .from("scheduled_transactions")
-      .select("*, accounts(id, name, type, balance)")
+      .select("*, accounts!scheduled_transactions_account_id_fkey(id, name, type, balance)")
       .eq("id", id)
       .single();
 
@@ -32,10 +33,15 @@ export async function POST(req: Request) {
 
     const s = sched.data;
 
+    // Override fields for this occurrence (from post modal)
+    const description = body.description || s.description;
+    const absAmount = Math.abs(Number(body.amount ?? s.amount));
+    const finalAmount = s.amount < 0 ? -absAmount : absAmount;
+    const memo = body.memo !== undefined ? body.memo : s.memo;
+
     if (action === "post") {
       if (s.to_account_id) {
         // It's a transfer — create both sides
-        const absAmount = Math.abs(Number(s.amount));
         const fromAmount = -absAmount;
 
         const { data: toAcct, error: toAcctErr } = await supabase
@@ -47,9 +53,10 @@ export async function POST(req: Request) {
         // Insert from transaction
         const { error: tx1Err } = await supabase.from("transactions").insert({
           account_id: s.account_id,
-          description: `${s.description} → ${toAcct.name}`,
+          description: `${description} → ${toAcct.name}`,
           amount: fromAmount,
           date: new Date().toISOString().split("T")[0],
+          memo,
           transfer_id: transferId,
         });
         if (tx1Err) return NextResponse.json({ error: "Failed to create from transaction: " + tx1Err.message }, { status: 500 });
@@ -58,9 +65,10 @@ export async function POST(req: Request) {
         const toAmount = toAcct.type === "credit" ? absAmount : absAmount;
         const { error: tx2Err } = await supabase.from("transactions").insert({
           account_id: s.to_account_id,
-          description: `${s.description} ← ${s.accounts?.name}`,
+          description: `${description} ← ${s.accounts?.name}`,
           amount: toAmount,
           date: new Date().toISOString().split("T")[0],
+          memo,
           transfer_id: transferId,
         });
         if (tx2Err) return NextResponse.json({ error: "Failed to create to transaction: " + tx2Err.message }, { status: 500 });
@@ -75,13 +83,14 @@ export async function POST(req: Request) {
         const { error: txError } = await supabase.from("transactions").insert({
           account_id: s.account_id,
           category_id: s.category_id,
-          description: s.description,
-          amount: s.amount,
+          description,
+          amount: finalAmount,
           date: new Date().toISOString().split("T")[0],
+          memo,
         });
         if (txError) return NextResponse.json({ error: txError.message }, { status: 500 });
 
-        const newBalance = Number(s.accounts?.balance ?? 0) + Number(s.amount);
+        const newBalance = Number(s.accounts?.balance ?? 0) + finalAmount;
         const { error: balError } = await supabase
           .from("accounts").update({ balance: newBalance }).eq("id", s.account_id);
         if (balError) return NextResponse.json({ error: "Balance update failed: " + balError.message }, { status: 500 });

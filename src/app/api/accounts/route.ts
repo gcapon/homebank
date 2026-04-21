@@ -18,9 +18,12 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const body = await request.json();
 
+  // Strip balance from body if present — always calculated server-side
+  const { balance, ...insertData } = body;
+
   const { data, error } = await supabase
     .from("accounts")
-    .insert(body)
+    .insert(insertData)
     .select()
     .single();
 

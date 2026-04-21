@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS accounts (
   balance NUMERIC(12, 2) DEFAULT 0,
   opening_balance NUMERIC(12, 2) DEFAULT 0,
   currency TEXT DEFAULT 'USD',
+  apr NUMERIC(5, 3) DEFAULT NULL,
+  notes TEXT DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

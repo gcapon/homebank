@@ -7,6 +7,8 @@ export interface Account {
   balance: number;
   opening_balance: number;
   currency: string;
+  apr?: number | null;
+  notes?: string | null;
   created_at: string;
   updated_at: string;
 }

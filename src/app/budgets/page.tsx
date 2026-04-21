@@ -88,8 +88,9 @@ export default function BudgetsPage() {
   }
 
   function startEdit(categoryId: string, month: string, currentValue: number) {
+    console.log("[DEBUG] startEdit called", { categoryId, month, currentValue });
     setEditingCell({ categoryId, month });
-    setCellValue(currentValue > 0 ? String(currentValue) : "");
+    setCellValue(currentValue >= 0 && currentValue !== null && currentValue !== undefined ? String(currentValue) : "");
   }
 
   function cancelEdit() {
@@ -99,27 +100,43 @@ export default function BudgetsPage() {
 
   function startCardEdit(accountId: string, month: string, currentValue: number) {
     setEditingCardCell({ accountId, month });
-    setCellValue(currentValue > 0 ? String(currentValue) : "");
+    setCellValue(currentValue >= 0 && currentValue !== null && currentValue !== undefined ? String(currentValue) : "");
   }
 
   async function saveCardBudget(accountId: string, monthStr: string) {
-    if (!supabaseRef.current) return;
-    const amount = parseFloat(cellValue) || 0;
+    const rawValue = cellValue.trim();
+    if (rawValue === "") return;
+    const amount = parseFloat(rawValue);
+    if (isNaN(amount)) { console.error("Invalid amount:", rawValue); return; }
+    const formData = new FormData();
+    formData.append("accountId", accountId);
+    formData.append("month", monthStr);
+    formData.append("amount", String(amount));
+    let ok = false;
+    let res = null;
+    let json: any = null;
+    try {
+      res = await fetch("/api/accounts/card-budget", { method: "POST", body: formData });
+      json = await res.json();
+      console.log("Card budget API response:", res.status, json);
+      ok = res.ok && !json.error;
+    } catch (e) {
+      console.error("Card budget fetch failed:", e);
+    }
+    if (!ok) { console.error("Card budget save failed, ok=false"); return; }
     const existing = cardBudgets.find((b) => b.account_id === accountId && b.month === monthStr);
     if (existing) {
-      await supabaseRef.current.from("card_budgets").update({ amount }).eq("id", existing.id);
       setCardBudgets((prev) => prev.map((b) => b.id === existing.id ? { ...b, amount } : b));
     } else {
-      const { data } = await supabaseRef.current.from("card_budgets").insert({ account_id: accountId, month: monthStr, amount }).select().single();
-      if (data) setCardBudgets((prev) => [...prev, data]);
+      setCardBudgets((prev) => [...prev, { id: crypto.randomUUID(), account_id: accountId, month: monthStr, amount }]);
     }
     setEditingCardCell(null);
     setCellValue("");
   }
 
-  function getCardBudget(accountId: string, month: string): number {
+  function getCardBudget(accountId: string, month: string): number | null {
     const b = cardBudgets.find((c) => c.account_id === accountId && c.month === month);
-    return b ? Number(b.amount) : 0;
+    return b !== undefined ? Number(b.amount) : null;
   }
 
   function getCardActualPaid(cardId: string, monthKey: string): number {
@@ -132,9 +149,9 @@ export default function BudgetsPage() {
       .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
   }
 
-  function getBudget(categoryId: string, month: string): number {
+  function getBudget(categoryId: string, month: string): number | null {
     const budget = budgets.find((b) => b.category_id === categoryId && b.month === month);
-    return budget ? Number(budget.amount) : 0;
+    return budget !== undefined ? Number(budget.amount) : null;
   }
 
   function getSpent(categoryId: string, monthKey: string, categoryType: string): number {
@@ -212,16 +229,19 @@ export default function BudgetsPage() {
         <h2 className="text-2xl font-bold text-gray-800">📊 Budget Planner</h2>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-600">Year</label>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              {years.map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
+            <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
+              Year
+              <select
+                id="year-select"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </label>
           </div>
           <div className="flex flex-col gap-1">
             <div className="flex gap-2 mb-1">
@@ -265,7 +285,7 @@ export default function BudgetsPage() {
                             const targetKeys = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x));
                             for (const c of allCategories) {
                               const v = getBudget(c.id, sourceKey);
-                              if (v > 0) copyToMonths(c.id, sourceKey, v, targetKeys);
+                              if (v !== null && v > 0) copyToMonths(c.id, sourceKey, v, targetKeys);
                             }
                           }}
                           className="text-xs text-blue-400 hover:text-blue-600"
@@ -288,7 +308,7 @@ export default function BudgetsPage() {
                         <td className="px-4 py-2 font-bold text-green-700 sticky left-0 bg-green-50 z-10" colSpan={1}>📈 INCOME</td>
                         {displayMonths.map((m) => {
                           const monthKey = getMonthKey(m);
-                          const totalBudget = incomeCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                          const totalBudget = incomeCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);
                           const totalSpent = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
                           return (
                             <td key={m} className="px-4 py-2 text-center">
@@ -307,7 +327,7 @@ export default function BudgetsPage() {
                             const budget = getBudget(cat.id, monthKey);
                             const spent = getSpent(cat.id, monthKey, cat.type);
                             const isEditing = editingCell?.categoryId === cat.id && editingCell?.month === monthKey;
-                            const hasData = budget > 0 || spent > 0;
+                            const hasData = budget !== null || spent > 0;
                             return (
                               <td key={m} className="px-4 py-3 text-center">
                                 {isEditing ? (
@@ -320,12 +340,12 @@ export default function BudgetsPage() {
                                   </div>
                                 ) : (
                                   <div className="flex flex-col gap-0.5 min-h-12">
-                                    <div onClick={() => startEdit(cat.id, monthKey, budget)} className="cursor-pointer hover:bg-blue-50 rounded py-0.5">
-                                      {budget > 0 ? <span className="font-semibold text-gray-700">${budget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span> : <span className="text-gray-300">+</span>}
+                                    <div onClick={() => { console.log("[DEBUG] income cell click", cat.id, monthKey, { budget }); startEdit(cat.id, monthKey, budget ?? 0); }} className="cursor-pointer hover:bg-blue-50 rounded py-0.5">
+                                      {budget !== null ? <span className="font-semibold text-gray-700">${(budget || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span> : <span className="text-gray-300">+</span>}
                                     </div>
-                                    {hasData && <div className={`text-sm ${getVarianceColor(budget, spent)}`}>${spent.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>}
-                                    {displayMonths.length > 1 && budget > 0 && (
-                                      <button onClick={(e) => { e.stopPropagation(); const targets = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x)); copyToMonths(cat.id, monthKey, budget, targets); }}
+                                    {hasData && <div className={`text-sm ${getVarianceColor(budget ?? 0, spent)}`}>${spent.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>}
+                                    {displayMonths.length > 1 && budget !== null && (
+                                      <button onClick={(e) => { e.stopPropagation(); const targets = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x)); copyToMonths(cat.id, monthKey, budget ?? 0, targets); }}
                                         className="text-xs text-blue-400 hover:text-blue-600" title="Copy to other months">↔</button>
                                     )}
                                   </div>
@@ -343,7 +363,7 @@ export default function BudgetsPage() {
                         <td className="px-4 py-2 font-bold text-red-700 sticky left-0 bg-red-50 z-10" colSpan={1}>📉 EXPENSES</td>
                         {displayMonths.map((m) => {
                           const monthKey = getMonthKey(m);
-                          const totalBudget = expenseCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                          const totalBudget = expenseCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);
                           const totalSpent = expenseCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "expense"), 0);
                           return (
                             <td key={m} className="px-4 py-2 text-center">
@@ -362,7 +382,7 @@ export default function BudgetsPage() {
                             const budget = getBudget(cat.id, monthKey);
                             const spent = getSpent(cat.id, monthKey, cat.type);
                             const isEditing = editingCell?.categoryId === cat.id && editingCell?.month === monthKey;
-                            const hasData = budget > 0 || spent > 0;
+                            const hasData = budget !== null || spent > 0;
                             return (
                               <td key={m} className="px-4 py-3 text-center">
                                 {isEditing ? (
@@ -375,12 +395,12 @@ export default function BudgetsPage() {
                                   </div>
                                 ) : (
                                   <div className="flex flex-col gap-0.5 min-h-12">
-                                    <div onClick={() => startEdit(cat.id, monthKey, budget)} className="cursor-pointer hover:bg-blue-50 rounded py-0.5">
-                                      {budget > 0 ? <span className="font-semibold text-gray-700">${budget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span> : <span className="text-gray-300">+</span>}
+                                    <div onClick={() => { console.log("[DEBUG] expense cell click", cat.id, monthKey, { budget }); startEdit(cat.id, monthKey, budget ?? 0); }} className="cursor-pointer hover:bg-blue-50 rounded py-0.5">
+                                      {budget !== null ? <span className="font-semibold text-gray-700">${(budget || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span> : <span className="text-gray-300">+</span>}
                                     </div>
-                                    {hasData && <div className={`text-sm ${getVarianceColor(budget, spent)}`}>${spent.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>}
-                                    {displayMonths.length > 1 && budget > 0 && (
-                                      <button onClick={(e) => { e.stopPropagation(); const targets = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x)); copyToMonths(cat.id, monthKey, budget, targets); }}
+                                    {hasData && <div className={`text-sm ${getVarianceColor(budget ?? 0, spent)}`}>${spent.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>}
+                                    {displayMonths.length > 1 && budget !== null && (
+                                      <button onClick={(e) => { e.stopPropagation(); const targets = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x)); copyToMonths(cat.id, monthKey, budget ?? 0, targets); }}
                                         className="text-xs text-blue-400 hover:text-blue-600" title="Copy to other months">↔</button>
                                     )}
                                   </div>
@@ -400,8 +420,8 @@ export default function BudgetsPage() {
                     <td className="px-4 py-3 sticky left-0 bg-blue-50 z-10"></td>
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
-                      const totalBudgetIncome = incomeCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
-                      const totalBudgetExpenses = expenseCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                      const totalBudgetIncome = incomeCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);
+                      const totalBudgetExpenses = expenseCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);
                       const totalSpentIncome = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
                       const totalSpentExpenses = expenseCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "expense"), 0);
                       const netBudget = totalBudgetIncome - totalBudgetExpenses;
@@ -448,18 +468,21 @@ export default function BudgetsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="text-center text-sm text-purple-600 border-b border-purple-200">
-                    <th className="pb-2 text-left pr-4">Card</th>
-                    {displayMonths.map((m) => {
-                      const label = `${MONTHS[m]} ${selectedYear}`;
-                      return <th key={m} className="px-2 pb-2">{label}</th>;
-                    })}
+                  <tr className="bg-purple-50 border-b border-purple-200">
+                    <th className="px-4 py-3 text-sm font-semibold text-purple-700 sticky left-0 bg-purple-50 z-10 min-w-48">
+                      Card
+                    </th>
+                    {displayMonths.map((m) => (
+                      <th key={m} className="px-4 py-3 text-sm font-semibold text-purple-700 text-center min-w-28">
+                        <span>{MONTHS[m]}</span>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {creditCardAccounts.map((card) => (
-                    <tr key={card.id} className="border-b border-purple-100">
-                      <td className="py-2 text-sm font-medium text-purple-800">{card.name}</td>
+                    <tr key={card.id} className="border-b border-purple-100 hover:bg-purple-50">
+                      <td className="px-4 py-3 font-medium text-purple-800 sticky left-0 bg-purple-50 z-10">{card.name}</td>
                       {displayMonths.map((m) => {
                         const monthKey = getMonthKey(m);
                         const budgeted = getCardBudget(card.id, monthKey);
@@ -487,16 +510,42 @@ export default function BudgetsPage() {
                             ) : (
                               <div className="flex flex-col gap-0.5">
                                 <div
-                                  onClick={() => startCardEdit(card.id, monthKey, budgeted)}
+                                  onClick={() => startCardEdit(card.id, monthKey, budgeted ?? 0)}
                                   className="cursor-pointer hover:bg-purple-100 rounded py-0.5"
                                 >
                                   <div className="text-xs text-gray-400">Budget / Actual</div>
                                   <span className="font-semibold text-gray-700">
-                                    {budgeted > 0 ? `$${budgeted.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : <span className="text-gray-300">+</span>}
+                                    {budgeted !== null && budgeted !== undefined ? `$${(budgeted ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : <span className="text-gray-300">+</span>}
                                   </span>
                                 </div>
                                 {actual > 0 && (
                                   <span className="text-sm text-purple-700">${actual.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                )}
+                                {displayMonths.length > 1 && budgeted !== null && budgeted !== undefined && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!supabaseRef.current) return;
+                                      const sourceKey = monthKey;
+                                      const targetKeys = displayMonths.filter((x) => x !== m).map((x) => getMonthKey(x));
+                                      (async () => {
+                                        for (const targetMonth of targetKeys) {
+                                          const existing = cardBudgets.find((b) => b.account_id === card.id && b.month === targetMonth);
+                                          if (existing) {
+                                            await supabaseRef.current.from("card_budgets").update({ amount: budgeted ?? 0 }).eq("id", existing.id);
+                                          } else {
+                                            await supabaseRef.current.from("card_budgets").insert({ account_id: card.id, month: targetMonth, amount: budgeted ?? 0 });
+                                          }
+                                        }
+                                        const { data } = await supabaseRef.current.from("card_budgets").select("*");
+                                        if (data) setCardBudgets(data);
+                                      })();
+                                    }}
+                                    className="text-xs text-purple-400 hover:text-purple-600"
+                                    title={`Copy ${card.name} budget to other months`}
+                                  >
+                                    ↔
+                                  </button>
                                 )}
                               </div>
                             )}
@@ -508,10 +557,10 @@ export default function BudgetsPage() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-purple-100 border-t-2 border-purple-300">
-                    <td className="py-2 text-sm font-bold text-purple-900">Total</td>
+                    <td className="px-4 py-2 text-sm font-bold text-purple-900 sticky left-0 bg-purple-50 z-10">Total</td>
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
-                      const totalBudgeted = creditCardAccounts.reduce((sum, card) => sum + getCardBudget(card.id, monthKey), 0);
+                      const totalBudgeted = creditCardAccounts.reduce((sum, card) => sum + (getCardBudget(card.id, monthKey) ?? 0), 0);
                       const totalActual = creditCardAccounts.reduce((sum, card) => sum + getCardActualPaid(card.id, monthKey), 0);
                       const hasAny = totalBudgeted > 0 || totalActual > 0;
                       return (
@@ -556,21 +605,22 @@ export default function BudgetsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="text-center text-sm text-gray-600 border-b border-gray-300">
-                    <th className="pb-2 text-left pr-4"></th>
-                    {displayMonths.map((m) => {
-                      const label = `${MONTHS[m]} ${selectedYear}`;
-                      return <th key={m} className="px-2 pb-2">{label}</th>;
-                    })}
+                  <tr className="bg-gray-100 border-b border-gray-300">
+                    <th className="px-4 py-3 text-sm font-semibold text-gray-700 sticky left-0 bg-gray-100 z-10 min-w-48"></th>
+                    {displayMonths.map((m) => (
+                      <th key={m} className="px-4 py-3 text-sm font-semibold text-gray-700 text-center min-w-28">
+                        <span>{MONTHS[m]}</span>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {/* Income row */}
                   <tr className="border-b border-gray-200">
-                    <td className="py-2 text-sm font-medium text-green-700">Income</td>
+                    <td className="px-4 py-3 text-sm font-medium text-green-700 sticky left-0 bg-gray-100 z-10 min-w-48">Income</td>
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
-                      const incomeBudgeted = incomeCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                      const incomeBudgeted = incomeCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);
                       const incomeActual = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
                       const hasAny = incomeBudgeted > 0 || incomeActual > 0;
                       return (
@@ -590,10 +640,10 @@ export default function BudgetsPage() {
                   </tr>
                   {/* Expenses row */}
                   <tr className="border-b border-gray-200">
-                    <td className="py-2 text-sm font-medium text-red-700">Expenses</td>
+                    <td className="px-4 py-3 text-sm font-medium text-red-700 sticky left-0 bg-gray-100 z-10 min-w-48">Expenses</td>
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
-                      const expenseBudgeted = expenseCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                      const expenseBudgeted = expenseCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);
                       const expenseActual = expenseCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "expense"), 0);
                       const hasAny = expenseBudgeted > 0 || expenseActual > 0;
                       return (
@@ -613,7 +663,7 @@ export default function BudgetsPage() {
                   </tr>
                   {/* Credit Card Payments row */}
                   <tr className="border-b border-gray-200">
-                    <td className="py-2 text-sm font-medium text-purple-700">CC Payments</td>
+                    <td className="px-4 py-3 text-sm font-medium text-purple-700 sticky left-0 bg-gray-100 z-10 min-w-48">CC Payments</td>
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
                       const cardBudgeted = ccAccounts.reduce((sum, card) => sum + cardBudgetedForMonth(card.id, monthKey), 0);
@@ -636,11 +686,11 @@ export default function BudgetsPage() {
                   </tr>
                   {/* Net row */}
                   <tr className="bg-blue-50 border-t-2 border-blue-300">
-                    <td className="py-2 text-sm font-bold text-blue-900">Net</td>
+                    <td className="px-4 py-3 text-sm font-bold text-blue-900 sticky left-0 bg-blue-50 z-10 min-w-48">Net</td>
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
-                      const incomeBudgeted = incomeCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
-                      const expenseBudgeted = expenseCategories.reduce((sum, cat) => sum + getBudget(cat.id, monthKey), 0);
+                      const incomeBudgeted = incomeCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);
+                      const expenseBudgeted = expenseCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);
                       const cardBudgeted = ccAccounts.reduce((sum, card) => sum + cardBudgetedForMonth(card.id, monthKey), 0);
                       const netBudgeted = incomeBudgeted - expenseBudgeted - cardBudgeted;
                       const incomeActual = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
