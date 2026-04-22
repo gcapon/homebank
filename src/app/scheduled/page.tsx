@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from "react";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import type { Account, Category, ScheduledTransaction } from "@/types";
