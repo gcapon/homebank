@@ -4,6 +4,7 @@ import AuthProvider from "@/components/AuthProvider";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import SignOutButton from "@/components/SignOutButton";
+import { authOptions } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "HomeBank Web",
@@ -15,9 +16,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getServerSession();
+  let session = null;
+  try {
+    session = await getServerSession(authOptions);
+  } catch (e) {
+    console.error("Session error:", e);
+  }
 
-  // Protect all routes except signin and auth
   if (!session) {
     redirect("/auth/signin");
   }
