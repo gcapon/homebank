@@ -50,6 +50,7 @@ export default async function RootLayout({
                           <a href="/accounts" className="block px-4 py-2 hover:bg-blue-50 transition">🏦 Accounts</a>
                           <a href="/categories" className="block px-4 py-2 hover:bg-blue-50 transition">🏷️ Categories</a>
                           <a href="/import" className="block px-4 py-2 hover:bg-blue-50 transition">📥 Import</a>
+                          <a href="/export" className="block px-4 py-2 hover:bg-blue-50 transition">📤 Export</a>
                         </div>
                       </div>
                     </>
