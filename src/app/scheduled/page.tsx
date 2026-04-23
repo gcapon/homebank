@@ -466,7 +466,7 @@ export default function ScheduledPage() {
           <h3 className="font-bold text-red-700 mb-3">⚠️ Due Now ({dueItems.length})</h3>
           <div className="space-y-2">
             {dueItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm">
+              <div key={item.id} className={`flex items-center justify-between rounded-lg px-4 py-3 shadow-sm ${Number(item.amount) > 0 ? "bg-green-50" : "bg-white"}`}>
                 <div className="flex-1 grid grid-cols-4 gap-4 items-center">
                   <div>
                     <div className="font-medium text-gray-800">{item.description}</div>
@@ -612,7 +612,7 @@ export default function ScheduledPage() {
         ) : (
           <div className="space-y-2">
             {allOccurrences.map((item) => (
-              <div key={`${item.id}-${item.occurrenceDate}`} className="flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border-l-4 border-blue-400">
+              <div key={`${item.id}-${item.occurrenceDate}`} className={`flex items-center justify-between rounded-lg px-4 py-3 shadow-sm border-l-4 ${Number(item.amount) > 0 ? "border-green-400 bg-green-50" : "border-blue-400 bg-white"}`}>
                 <div className="flex-1 grid grid-cols-5 gap-4 items-center">
                   <div>
                     <div className="font-medium text-gray-800">{item.description}</div>
