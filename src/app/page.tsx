@@ -14,7 +14,7 @@ export default function HomePage() {
     );
     Promise.all([
       supabase.from("accounts").select("*").order("created_at", { ascending: false }),
-      supabase.from("transactions").select("*, accounts(name), categories(name)").order("date", { ascending: false }).limit(5),
+      supabase.from("transactions").select("id, account_id, category_id, description, amount, date, reconciled, transfer_id, memo, created_at, accounts(name), categories(name)").order("date", { ascending: false }).limit(5),
     ]).then(([accRes, txRes]) => {
       if (accRes.data) setAccounts(accRes.data);
       if (txRes.data) setTransactions(txRes.data);
