@@ -29,7 +29,7 @@ export default async function RootLayout({
             {/* Header — always shown */}
             <header className="bg-blue-600 text-white shadow-md">
               <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-                <h1 className="text-xl font-bold">🏦 HomeBank Web</h1>
+                <h1 className="text-xl font-bold"><a href="/">🏦 HomeBank Web</a></h1>
                 {session?.user?.name && (
                   <span className="text-sm text-blue-200">Hello, {session.user.name}</span>
                 )}
