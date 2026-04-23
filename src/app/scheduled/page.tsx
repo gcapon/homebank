@@ -511,12 +511,15 @@ export default function ScheduledPage() {
                     <span className="text-sm font-medium text-gray-800">{postModalItem.categories?.name}</span>
                   </div>
                 )}
-                {postModalOccurrenceDate && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">Date</span>
-                    <span className="text-sm font-medium text-gray-800">{postModalOccurrenceDate}</span>
-                  </div>
-                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">Date</span>
+                  <input
+                    type="date"
+                    value={postModalOccurrenceDate}
+                    onChange={e => setPostModalOccurrenceDate(e.target.value)}
+                    className="px-2 py-1 border border-gray-200 rounded text-sm font-medium text-gray-800"
+                  />
+                </div>
                 <div className="flex justify-between border-t pt-2 mt-2">
                   <span className="text-sm text-gray-500">Amount</span>
                   <span className="text-lg font-bold text-gray-800">${postForm.amount}</span>
