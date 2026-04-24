@@ -142,7 +142,6 @@ export default function BudgetsPage() {
   }
 
   function getCardActualPaid(cardId: string, monthKey: string): number {
-    // Count payments INTO this card from accounts that are NOT credit/liability accounts
     const thisCardTxs = transactions.filter((t) => t.account_id === cardId && t.transfer_id);
     const transferGroups: Record<string, Transaction[]> = {};
     for (const tx of thisCardTxs) {
@@ -156,23 +155,29 @@ export default function BudgetsPage() {
       const counterpartyTx = group.find((t) => t.account_id !== cardId);
       let skipReason = "";
       if (counterpartyTx) {
-        const counterpartyAccount = accounts.find((a) => a.id === counterpartyTx.account_id);
-        if (counterpartyAccount?.type === "credit") {
+        // counterpartyTx.account_id is the other account in the transfer pair
+        const counterpartyAcct = accounts.find((a) => a.id === counterpartyTx.account_id);
+        if (counterpartyAcct?.type === "credit") {
           skipReason = "SKIP (card->card)";
         }
+        console.log("[getCardActualPaid]", {
+          txId: tx.id,
+          cardId,
+          transferId: tx.transfer_id,
+          amount: tx.amount,
+          date: tx.date,
+          counterpartyTxId: counterpartyTx.id,
+          counterpartyAcctId: counterpartyTx.account_id,
+          counterpartyAcctType: counterpartyAcct?.type,
+          monthKey,
+          inMonth: tx.date.startsWith(monthKey),
+          skipReason,
+          accountsLoaded: accounts.length,
+          accountIds: accounts.map((a) => a.id),
+        });
+      } else {
+        console.log("[getCardActualPaid] NO COUNTERPARTY for transfer", tx.transfer_id, { cardId, txAccountId: tx.account_id, allTxForThisCard: thisCardTxs.map((t) => ({ id: t.id, account_id: t.account_id, transfer_id: t.transfer_id })) });
       }
-      console.log("[getCardActualPaid]", {
-        txId: tx.id,
-        cardId,
-        transferId: tx.transfer_id,
-        amount: tx.amount,
-        date: tx.date,
-        counterpartyAcctId: counterpartyTx?.account_id,
-        counterpartyType: accounts.find((a) => a.id === counterpartyTx?.account_id)?.type,
-        monthKey,
-        inMonth: tx.date.startsWith(monthKey),
-        skipReason,
-      });
       if (skipReason) continue;
       if (tx.date.startsWith(monthKey)) {
         total += Math.abs(Number(tx.amount));
@@ -625,7 +630,6 @@ export default function BudgetsPage() {
           return b ? Number(b.amount) : 0;
         }
         function cardActualForMonth(cardId: string, monthKey: string): number {
-          // Same logic: exclude transfers between two liability (credit) accounts
           const thisCardTxs = transactions.filter((t) => t.account_id === cardId && t.transfer_id);
           const transferGroups: Record<string, Transaction[]> = {};
           for (const tx of thisCardTxs) {
@@ -638,9 +642,8 @@ export default function BudgetsPage() {
             const group = transferGroups[tx.transfer_id!];
             const counterpartyTx = group.find((t) => t.account_id !== cardId);
             if (counterpartyTx) {
-              const counterpartyAccount = accounts.find((a) => a.id === counterpartyTx.account_id);
-              const isLiabilityToLiability = counterpartyAccount?.type === "credit";
-              if (isLiabilityToLiability) continue;
+              const counterpartyAcct = accounts.find((a) => a.id === counterpartyTx.account_id);
+              if (counterpartyAcct?.type === "credit") continue;
             }
             if (tx.date.startsWith(monthKey)) {
               total += Math.abs(Number(tx.amount));
