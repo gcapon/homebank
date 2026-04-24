@@ -28,15 +28,15 @@ export default async function RootLayout({
           <div className="min-h-screen flex flex-col">
             {/* Header — always shown */}
             <header className="bg-blue-600 text-white shadow-md">
-              <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-                <h1 className="text-xl font-bold"><a href="/">🏦 HomeBank Web</a></h1>
+              <div className="max-w-7xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between gap-4">
+                <h1 className="text-lg md:text-xl font-bold shrink-0"><a href="/">🏦 HomeBank Web</a></h1>
                 {session?.user?.name && (
-                  <span className="text-sm text-blue-200">Hello, {session.user.name}</span>
+                  <span className="hidden sm:inline text-sm text-blue-200 shrink-0">Hello, {session.user.name}</span>
                 )}
-                <nav className="flex gap-4 items-center">
-                  {session && <SignOutButton />}
-                  {session && (
-                    <>
+                {session && (
+                  <>
+                    {/* Desktop nav */}
+                    <nav className="hidden md:flex gap-4 items-center">
                       <a href="/transactions" className="hover:text-blue-200 transition">Transactions</a>
                       <a href="/budgets" className="hover:text-blue-200 transition">Budgets</a>
                       <a href="/reports" className="hover:text-blue-200 transition">Reports</a>
@@ -53,9 +53,31 @@ export default async function RootLayout({
                           <a href="/export" className="block px-4 py-2 hover:bg-blue-50 transition">📤 Export</a>
                         </div>
                       </div>
-                    </>
-                  )}
-                </nav>
+                    </nav>
+                    {/* Mobile nav — horizontal scroll */}
+                    <nav className="md:hidden flex items-center gap-2 overflow-x-auto mobile-nav-scroll flex-1 min-w-0">
+                      <a href="/transactions" className="hover:text-blue-200 transition text-sm whitespace-nowrap px-2 py-1 rounded hover:bg-blue-500">Transactions</a>
+                      <a href="/budgets" className="hover:text-blue-200 transition text-sm whitespace-nowrap px-2 py-1 rounded hover:bg-blue-500">Budgets</a>
+                      <a href="/reports" className="hover:text-blue-200 transition text-sm whitespace-nowrap px-2 py-1 rounded hover:bg-blue-500">Reports</a>
+                      <a href="/scheduled" className="hover:text-blue-200 transition text-sm whitespace-nowrap px-2 py-1 rounded hover:bg-blue-500">Scheduled</a>
+                      {/* Settings dropdown for mobile */}
+                      <div className="relative group shrink-0">
+                        <button className="hover:text-blue-200 transition flex items-center gap-1 cursor-pointer text-sm whitespace-nowrap px-2 py-1 rounded hover:bg-blue-500">
+                          ⚙️ Settings ▾
+                        </button>
+                        <div className="absolute right-0 top-full mt-1 bg-white text-gray-700 rounded-lg shadow-lg border border-gray-100 overflow-hidden w-40 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                          <a href="/accounts" className="block px-4 py-2 hover:bg-blue-50 transition">🏦 Accounts</a>
+                          <a href="/categories" className="block px-4 py-2 hover:bg-blue-50 transition">🏷️ Categories</a>
+                          <a href="/import" className="block px-4 py-2 hover:bg-blue-50 transition">📥 Import</a>
+                          <a href="/export" className="block px-4 py-2 hover:bg-blue-50 transition">📤 Export</a>
+                        </div>
+                      </div>
+                    </nav>
+                  </>
+                )}
+                <div className="flex items-center gap-2 shrink-0">
+                  {session && <SignOutButton />}
+                </div>
               </div>
             </header>
 
