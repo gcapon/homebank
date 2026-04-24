@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import SignOutButton from "@/components/SignOutButton";
+import MobileMenu from "@/components/MobileMenu";
 
 export const metadata: Metadata = {
   title: "HomeBank Web",
@@ -56,6 +57,8 @@ export default async function RootLayout({
                     </>
                   )}
                 </nav>
+                {/* Mobile hamburger — purely additive, no layout changes */}
+                {session && <MobileMenu session={session} />}
               </div>
             </header>
 
