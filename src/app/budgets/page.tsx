@@ -142,31 +142,26 @@ export default function BudgetsPage() {
   }
 
   function getCardActualPaid(cardId: string, monthKey: string): number {
-    // Get all transfer IDs that involve this card
+    // Count payments INTO this card from accounts that are NOT credit/liability accounts
+    // This correctly handles:
+    //   - Checking → Visa: counts as a payment (money left checking, card debt reduced)
+    //   - Amex → Citi: does NOT count as a cash outflow (just a balance transfer)
     const thisCardTxs = transactions.filter((t) => t.account_id === cardId && t.transfer_id);
-    
-    // Build a map of transfer_id -> all transactions with that transfer
     const transferGroups: Record<string, Transaction[]> = {};
     for (const tx of thisCardTxs) {
       if (!transferGroups[tx.transfer_id!]) transferGroups[tx.transfer_id!] = [];
       transferGroups[tx.transfer_id!].push(tx);
     }
-    
-    // For each transfer group, check if BOTH accounts are liability accounts (credit)
-    // If so, it's a transfer between liabilities — exclude it from "payments"
     let total = 0;
     for (const tx of thisCardTxs) {
       if (!tx.transfer_id) continue;
       const group = transferGroups[tx.transfer_id!];
       const counterpartyTx = group.find((t) => t.account_id !== cardId);
-      
       if (counterpartyTx) {
         const counterpartyAccount = accounts.find((a) => a.id === counterpartyTx.account_id);
-        const isLiabilityToLiability = counterpartyAccount?.type === "credit";
-        if (isLiabilityToLiability) continue; // skip — it's a liability-to-liability transfer, not a payment
+        // If counterparty is also credit — it's a balance transfer, skip it
+        if (counterpartyAccount?.type === "credit") continue;
       }
-      
-      // Only count if in the target month
       if (tx.date.startsWith(monthKey)) {
         total += Math.abs(Number(tx.amount));
       }
