@@ -25,7 +25,7 @@ export default async function RootLayout({
         <AuthProvider>
           <div className="min-h-screen flex flex-col">
             {/* Header */}
-            <header className="bg-blue-600 text-white shadow-md">
+            <header className="bg-blue-600 text-white shadow-md relative">
               <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
                 {/* Left: logo + name */}
                 <div className="flex items-center gap-3 shrink-0">
@@ -57,7 +57,11 @@ export default async function RootLayout({
                 </nav>
 
                 {/* Right: mobile hamburger */}
-                {session && <MobileMenu session={session} />}
+                {session && (
+                  <div className="relative">
+                    <MobileMenu session={session} />
+                  </div>
+                )}
               </div>
             </header>
 
