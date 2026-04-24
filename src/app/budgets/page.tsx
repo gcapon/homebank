@@ -162,7 +162,10 @@ export default function BudgetsPage() {
         }
       }
       if (tx.date.startsWith(monthKey)) {
-        total += Math.abs(Number(tx.amount));
+        // Only count NEGATIVE amounts (actual outflows from this card = payments)
+        // POSITIVE amounts = money received (not a payment to the card)
+        const amt = Number(tx.amount);
+        total += amt < 0 ? Math.abs(amt) : 0;
       }
     }
     return { total, excluded };
@@ -628,7 +631,8 @@ export default function BudgetsPage() {
               if (counterpartyAcct?.type === "credit") continue;
             }
             if (tx.date.startsWith(monthKey)) {
-              total += Math.abs(Number(tx.amount));
+              const amt = Number(tx.amount);
+              total += amt < 0 ? Math.abs(amt) : 0;
             }
           }
           return total;
