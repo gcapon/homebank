@@ -143,9 +143,6 @@ export default function BudgetsPage() {
 
   function getCardActualPaid(cardId: string, monthKey: string): number {
     // Count payments INTO this card from accounts that are NOT credit/liability accounts
-    // This correctly handles:
-    //   - Checking → Visa: counts as a payment (money left checking, card debt reduced)
-    //   - Amex → Citi: does NOT count as a cash outflow (just a balance transfer)
     const thisCardTxs = transactions.filter((t) => t.account_id === cardId && t.transfer_id);
     const transferGroups: Record<string, Transaction[]> = {};
     for (const tx of thisCardTxs) {
@@ -157,11 +154,26 @@ export default function BudgetsPage() {
       if (!tx.transfer_id) continue;
       const group = transferGroups[tx.transfer_id!];
       const counterpartyTx = group.find((t) => t.account_id !== cardId);
+      let skipReason = "";
       if (counterpartyTx) {
         const counterpartyAccount = accounts.find((a) => a.id === counterpartyTx.account_id);
-        // If counterparty is also credit — it's a balance transfer, skip it
-        if (counterpartyAccount?.type === "credit") continue;
+        if (counterpartyAccount?.type === "credit") {
+          skipReason = "SKIP (card->card)";
+        }
       }
+      console.log("[getCardActualPaid]", {
+        txId: tx.id,
+        cardId,
+        transferId: tx.transfer_id,
+        amount: tx.amount,
+        date: tx.date,
+        counterpartyAcctId: counterpartyTx?.account_id,
+        counterpartyType: accounts.find((a) => a.id === counterpartyTx?.account_id)?.type,
+        monthKey,
+        inMonth: tx.date.startsWith(monthKey),
+        skipReason,
+      });
+      if (skipReason) continue;
       if (tx.date.startsWith(monthKey)) {
         total += Math.abs(Number(tx.amount));
       }
