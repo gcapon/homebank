@@ -28,18 +28,18 @@ export default function HomePage() {
   return (
     <div className="space-y-6">
       {/* Dashboard Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Dashboard</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
         <a
           href="/transactions"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm sm:text-base w-full sm:w-auto text-center"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
         >
           + Add Transaction
         </a>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <p className="text-sm text-gray-500 mb-1">Total Balance</p>
           <p className={`text-2xl font-bold ${totalBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
@@ -66,7 +66,7 @@ export default function HomePage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <a href="/accounts" className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-blue-300 transition flex flex-col items-center gap-2">
           <span className="text-2xl">🏦</span>
           <span className="text-sm font-medium text-gray-700">Add Account</span>

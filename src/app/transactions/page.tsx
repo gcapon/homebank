@@ -423,7 +423,7 @@ export default function TransactionsPage() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => cancelEdit()} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 modal-mobile-full overflow-y-auto">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
             <button
               type="button"
               onClick={() => cancelEdit()}
@@ -637,7 +637,7 @@ export default function TransactionsPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="p-6">
           {displayTransactions.length > 0 ? (
-            <div className="overflow-x-auto table-scroll">
+            <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="text-left text-sm text-gray-500 border-b border-gray-100">
