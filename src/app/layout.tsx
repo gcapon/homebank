@@ -3,7 +3,7 @@ import "./globals.css";
 import AuthProvider from "@/components/AuthProvider";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
+import MobileMenu from "@/components/MobileMenu";
 import SignOutButton from "@/components/SignOutButton";
 
 export const metadata: Metadata = {
@@ -18,44 +18,48 @@ export default async function RootLayout({
 }) {
   const session = await getServerSession(authOptions).catch(() => null);
 
-  // Don't redirect if already on sign-in page
-  const isAuthPage = true; // We'll handle this per-page instead
-
   return (
     <html lang="en">
       <body className="bg-gray-50 text-gray-900 antialiased">
         <AuthProvider>
           <div className="min-h-screen flex flex-col">
-            {/* Header — always shown */}
-            <header className="bg-blue-600 text-white shadow-md">
-              <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-                <h1 className="text-xl font-bold"><a href="/">🏦 HomeBank Web</a></h1>
-                {session?.user?.name && (
-                  <span className="text-sm text-blue-200">Hello, {session.user.name}</span>
-                )}
-                <nav className="flex gap-4 items-center">
-                  {session && <SignOutButton />}
-                  {session && (
-                    <>
-                      <a href="/transactions" className="hover:text-blue-200 transition">Transactions</a>
-                      <a href="/budgets" className="hover:text-blue-200 transition">Budgets</a>
-                      <a href="/reports" className="hover:text-blue-200 transition">Reports</a>
-                      <a href="/scheduled" className="hover:text-blue-200 transition">Scheduled</a>
-                      {/* Settings dropdown */}
-                      <div className="relative group">
-                        <button className="hover:text-blue-200 transition flex items-center gap-1 cursor-pointer">
-                          ⚙️ Settings ▾
-                        </button>
-                        <div className="absolute right-0 top-full mt-1 bg-white text-gray-700 rounded-lg shadow-lg border border-gray-100 overflow-hidden w-40 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[140px]">
-                          <a href="/accounts" className="block px-4 py-2 hover:bg-blue-50 transition">🏦 Accounts</a>
-                          <a href="/categories" className="block px-4 py-2 hover:bg-blue-50 transition">🏷️ Categories</a>
-                          <a href="/import" className="block px-4 py-2 hover:bg-blue-50 transition">📥 Import</a>
-                          <a href="/export" className="block px-4 py-2 hover:bg-blue-50 transition">📤 Export</a>
-                        </div>
+            {/* Header */}
+            <header className="bg-blue-600 text-white shadow-md relative">
+              <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+                {/* Logo + hamburger row */}
+                <div className="flex items-center gap-4 w-full">
+                  <h1 className="text-xl font-bold shrink-0">
+                    <a href="/">🏦 HomeBank Web</a>
+                  </h1>
+                  {/* Spacer pushes hamburger to the right on desktop */}
+                  <div className="flex-1" />
+                  {/* Mobile hamburger — left of the nav on mobile */}
+                  {session && <MobileMenu session={session} />}
+                </div>
+
+                {/* Desktop nav — hidden on mobile */}
+                {session && (
+                  <nav className="hidden md:flex gap-4 items-center">
+                    <span className="text-sm text-blue-200 mr-2">Hello, {session.user.name}</span>
+                    <a href="/transactions" className="hover:text-blue-200 transition">Transactions</a>
+                    <a href="/budgets" className="hover:text-blue-200 transition">Budgets</a>
+                    <a href="/reports" className="hover:text-blue-200 transition">Reports</a>
+                    <a href="/scheduled" className="hover:text-blue-200 transition">Scheduled</a>
+                    {/* Settings dropdown */}
+                    <div className="relative group">
+                      <button className="hover:text-blue-200 transition flex items-center gap-1 cursor-pointer">
+                        ⚙️ Settings ▾
+                      </button>
+                      <div className="absolute right-0 top-full mt-1 bg-white text-gray-700 rounded-lg shadow-lg border border-gray-100 overflow-hidden w-40 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[140px]">
+                        <a href="/accounts" className="block px-4 py-2 hover:bg-blue-50 transition">🏦 Accounts</a>
+                        <a href="/categories" className="block px-4 py-2 hover:bg-blue-50 transition">🏷️ Categories</a>
+                        <a href="/import" className="block px-4 py-2 hover:bg-blue-50 transition">📥 Import</a>
+                        <a href="/export" className="block px-4 py-2 hover:bg-blue-50 transition">📤 Export</a>
                       </div>
-                    </>
-                  )}
-                </nav>
+                    </div>
+                    <SignOutButton />
+                  </nav>
+                )}
               </div>
             </header>
 
