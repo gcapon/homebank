@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 // GET ?transfer_id=xxx — check a specific transfer
-// GET ?account_id=xxx — check all transfers for a specific account
+// GET ?account_id=xxx — check all transfers for a specific account in a month
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const transferId = searchParams.get("transfer_id");
@@ -22,8 +22,8 @@ export async function GET(req: Request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    const result = data.map((tx: any) => {
-      const counterpartyTx = data.find((t: any) => t.account_id !== tx.account_id);
+    const result = (data || []).map((tx: any) => {
+      const counterpartyTx = (data || []).find((t: any) => t.account_id !== tx.account_id);
       const counterpartyAcct = counterpartyTx
         ? { id: counterpartyTx.account_id, name: counterpartyTx.accounts?.name, type: counterpartyTx.accounts?.type }
         : null;
@@ -44,12 +44,13 @@ export async function GET(req: Request) {
   }
 
   if (accountId) {
-    // Show all transfer transactions for one account in a given month
     const startDate = `${monthKey}-01`;
     const [year, month] = monthKey.split("-").map(Number);
     const nextMonth = month === 12 ? 1 : month + 1;
     const nextYear = month === 12 ? year + 1 : year;
     const endDate = `${String(nextYear).padStart(4, "0")}-${String(nextMonth).padStart(2, "0")}-01`;
+
+    // Fetch all this account's transfers in the month
     const { data, error } = await supabase
       .from("transactions")
       .select("*, accounts(name, type)")
@@ -60,24 +61,35 @@ export async function GET(req: Request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    const result = (data || []).map((tx: any) => {
-      const counterpartyTx = data.find((t: any) => t.account_id !== tx.account_id && t.transfer_id === tx.transfer_id);
-      const counterpartyAcct = counterpartyTx
-        ? { id: counterpartyTx.account_id, name: counterpartyTx.accounts?.name, type: counterpartyTx.accounts?.type }
-        : null;
-      return {
-        txId: tx.id,
-        accountId: tx.account_id,
-        accountName: tx.accounts?.name,
-        accountType: tx.accounts?.type,
-        amount: tx.amount,
-        date: tx.date,
-        transferId: tx.transfer_id,
-        counterpartyAcct,
-        wouldBeCounted: counterpartyAcct?.type !== "credit",
-        skipThisTx: counterpartyAcct?.type === "credit",
-      };
-    });
+    // For each transfer, fetch the counterparty transaction separately
+    const result = await Promise.all(
+      (data || []).map(async (tx: any) => {
+        // Find the OTHER transaction(s) with the same transfer_id (different account)
+        const { data: counterpartyTxs } = await supabase
+          .from("transactions")
+          .select("*, accounts(name, type)")
+          .eq("transfer_id", tx.transfer_id)
+          .neq("account_id", accountId);
+
+        const counterpartyTx = (counterpartyTxs || [])[0];
+        const counterpartyAcct = counterpartyTx
+          ? { id: counterpartyTx.account_id, name: counterpartyTx.accounts?.name, type: counterpartyTx.accounts?.type }
+          : null;
+
+        return {
+          txId: tx.id,
+          accountId: tx.account_id,
+          accountName: tx.accounts?.name,
+          accountType: tx.accounts?.type,
+          amount: tx.amount,
+          date: tx.date,
+          transferId: tx.transfer_id,
+          counterpartyAcct,
+          wouldBeCounted: counterpartyAcct?.type !== "credit",
+          skipThisTx: counterpartyAcct?.type === "credit",
+        };
+      })
+    );
 
     return NextResponse.json({
       month: monthKey,
@@ -85,8 +97,8 @@ export async function GET(req: Request) {
       transactions: result,
       summary: {
         total: result.length,
-        wouldBeCounted: result.filter((r: any) => r.wouldBeCounted).length,
-        wouldBeSkipped: result.filter((r: any) => r.skipThisTx).length,
+        wouldBeCounted: result.filter((r) => r.wouldBeCounted).length,
+        wouldBeSkipped: result.filter((r) => r.skipThisTx).length,
       },
     });
   }
