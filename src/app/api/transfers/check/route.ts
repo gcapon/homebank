@@ -45,12 +45,18 @@ export async function GET(req: Request) {
 
   if (accountId) {
     // Show all transfer transactions for one account in a given month
+    const startDate = `${monthKey}-01`;
+    const [year, month] = monthKey.split("-").map(Number);
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    const endDate = `${String(nextYear).padStart(4, "0")}-${String(nextMonth).padStart(2, "0")}-01`;
     const { data, error } = await supabase
       .from("transactions")
       .select("*, accounts(name, type)")
       .eq("account_id", accountId)
       .not("transfer_id", "is", null)
-      .like("date", `${monthKey}%`);
+      .gte("date", startDate)
+      .lt("date", endDate);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
