@@ -378,7 +378,7 @@ export default function TransactionsPage() {
             <span className="text-lg font-semibold text-blue-600">{selectedAccount.name}</span>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <select
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value)}
@@ -409,21 +409,21 @@ export default function TransactionsPage() {
               Recalculate
             </button>
           )}
+          <button
+            onClick={() => {
+              setShowForm(!showForm);
+              setEditingId(null);
+              setEditingTransferPair(null);
+              setTransactionType("expense");
+              if (selectedAccountId) {
+                setFormData({ ...formData, account_id: selectedAccountId });
+              }
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium sm:ml-auto"
+          >
+            {showForm ? "Cancel" : "+ Add Transaction"}
+          </button>
         </div>
-        <button
-          onClick={() => {
-            setShowForm(!showForm);
-            setEditingId(null);
-            setEditingTransferPair(null);
-            setTransactionType("expense");
-            if (selectedAccountId) {
-              setFormData({ ...formData, account_id: selectedAccountId });
-            }
-          }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
-        >
-          {showForm ? "Cancel" : "+ Add Transaction"}
-        </button>
       </div>
 
       {/* Modal Form Overlay */}
