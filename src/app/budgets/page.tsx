@@ -144,7 +144,7 @@ export default function BudgetsPage() {
   function getCardActualPaid(cardId: string, monthKey: string): number {
     return transactions
       .filter((t) => {
-        if (!t.transfer_id) return false;
+        if (!t.transfer_id || t.excluded_from_budget) return false;
         if (t.account_id !== cardId) return false;
         return t.date.startsWith(monthKey);
       })
@@ -596,7 +596,7 @@ export default function BudgetsPage() {
         }
         function cardActualForMonth(cardId: string, monthKey: string) {
           return transactions
-            .filter((t) => { if (!t.transfer_id) return false; if (t.account_id !== cardId) return false; return t.date.startsWith(monthKey); })
+            .filter((t) => { if (!t.transfer_id || t.excluded_from_budget) return false; if (t.account_id !== cardId) return false; return t.date.startsWith(monthKey); })
             .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
         }
 

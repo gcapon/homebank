@@ -34,6 +34,7 @@ export default function TransactionsPage() {
     amount: "",
     memo: "",
     date: defaultDate,
+    excluded_from_budget: false,
   });
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
@@ -48,7 +49,7 @@ export default function TransactionsPage() {
   async function fetchData() {
     if (!supabaseRef.current) return;
     const [txResult, accResult, catResult] = await Promise.all([
-      supabaseRef.current.from("transactions").select("id, account_id, category_id, description, amount, date, reconciled, transfer_id, memo, created_at, accounts(name), categories(name)").order("date", { ascending: false }),
+      supabaseRef.current.from("transactions").select("id, account_id, category_id, description, amount, date, reconciled, transfer_id, memo, excluded_from_budget, created_at, accounts(name), categories(name)").order("date", { ascending: false }),
       supabaseRef.current.from("accounts").select("*").order("name"),
       supabaseRef.current.from("categories").select("*").order("name"),
     ]);
@@ -99,6 +100,7 @@ export default function TransactionsPage() {
           amount: newFromAmount,
           date: formData.date,
           memo: formData.memo,
+          excluded_from_budget: formData.excluded_from_budget,
         }).eq("id", fromTx.id);
 
         await supabaseRef.current.from("transactions").update({
@@ -107,6 +109,7 @@ export default function TransactionsPage() {
           amount: newToAmount,
           date: formData.date,
           memo: formData.memo,
+          excluded_from_budget: formData.excluded_from_budget,
         }).eq("id", toTx.id);
 
         // Update account balances:
@@ -184,7 +187,7 @@ export default function TransactionsPage() {
           return;
         }
       }
-      setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: "", memo: "", date: defaultDate });
+      setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: "", memo: "", date: defaultDate, excluded_from_budget: false });
       setShowForm(false);
       setTransactionType("expense");
       fetchData();
@@ -213,6 +216,7 @@ export default function TransactionsPage() {
         amount,
         date: formData.date,
         memo: formData.memo,
+        excluded_from_budget: formData.excluded_from_budget,
       }).eq("id", editingId);
 
       const oldAccount = accounts.find((a) => a.id === oldTx?.account_id);
@@ -233,6 +237,7 @@ export default function TransactionsPage() {
         amount,
         date: formData.date,
         memo: formData.memo,
+        excluded_from_budget: formData.excluded_from_budget,
       });
 
       const account = accounts.find((a) => a.id === formData.account_id);
@@ -241,7 +246,7 @@ export default function TransactionsPage() {
       }
     }
 
-    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: "", memo: "", date: defaultDate });
+    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: "", memo: "", date: defaultDate, excluded_from_budget: false });
     setShowForm(false);
     fetchData();
   }
@@ -265,6 +270,7 @@ export default function TransactionsPage() {
         amount: String(Math.abs(Number(fromTx.amount))),
         memo: (fromTx as any).memo || "",
         date: fromTx.date,
+        excluded_from_budget: fromTx.excluded_from_budget ?? false,
       });
     } else {
       setEditingId(tx.id);
@@ -277,6 +283,7 @@ export default function TransactionsPage() {
         amount: String(Math.abs(Number(tx.amount))),
         memo: tx.memo || "",
         date: tx.date,
+        excluded_from_budget: (tx as any).excluded_from_budget ?? false,
       });
     }
     setShowForm(true);
@@ -285,7 +292,7 @@ export default function TransactionsPage() {
   function cancelEdit() {
     setEditingId(null);
     setEditingTransferPair(null);
-    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: "", memo: "", date: defaultDate });
+    setFormData({ account_id: "", to_account_id: "", category_id: "", description: "", amount: "", memo: "", date: defaultDate, excluded_from_budget: false });
     setShowForm(false);
     setIsAddingCategory(false);
     setNewCategoryName("");
@@ -606,6 +613,19 @@ export default function TransactionsPage() {
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
                   />
+                </div>
+
+                {/* Exclude from budget toggle */}
+                <div className="flex items-center gap-3 pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.excluded_from_budget}
+                      onChange={(e) => setFormData({ ...formData, excluded_from_budget: e.target.checked })}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-600">Exclude from budget calculations</span>
+                  </label>
                 </div>
 
                 <div>

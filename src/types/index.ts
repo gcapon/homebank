@@ -22,6 +22,7 @@ export interface Transaction {
   date: string;
   reconciled: boolean;
   transfer_id: string | null;
+  excluded_from_budget?: boolean;
   memo?: string;
   created_at: string;
   updated_at: string;
