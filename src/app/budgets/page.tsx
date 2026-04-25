@@ -262,9 +262,9 @@ export default function BudgetsPage() {
     setSelectedMonths([]);
   }
 
-  const allCategories = categories.filter((c) => c.type === "expense" || c.type === "income");
-  const incomeCategories = allCategories.filter((c) => c.type === "income");
-  const expenseCategories = allCategories.filter((c) => c.type === "expense");
+  const allCategories = categories.filter((c) => c.type === "expense" || c.type === "income" || c.type === "both");
+  const incomeCategories = allCategories.filter((c) => c.type === "income" || c.type === "both");
+  const expenseCategories = allCategories.filter((c) => c.type === "expense" || c.type === "both");
   const displayMonths = selectedMonths.length > 0 ? selectedMonths : [new Date().getMonth()];
 
   const years = [new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1];

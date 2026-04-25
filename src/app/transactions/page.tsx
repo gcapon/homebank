@@ -550,7 +550,7 @@ export default function TransactionsPage() {
                             {transactionType === "income" ? "No category (income)" : "Select Category"}
                           </option>
                           {categories
-                            .filter((c) => transactionType === "income" ? c.type === "income" : c.type === "expense")
+                            .filter((c) => c.type === transactionType || c.type === "both")
                             .map((cat) => (
                               <option key={cat.id} value={cat.id}>{cat.name}</option>
                             ))}
