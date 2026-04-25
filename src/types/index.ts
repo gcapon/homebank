@@ -27,12 +27,10 @@ export interface Transaction {
   updated_at: string;
 }
 
-export type CategoryType = 'income' | 'expense' | 'both' | 'transfer';
-
 export interface Category {
   id: string;
   name: string;
-  type: CategoryType;
+  type: 'income' | 'expense';
   parent_id: string | null;
   created_at: string;
   updated_at: string;

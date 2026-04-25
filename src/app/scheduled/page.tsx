@@ -381,7 +381,7 @@ export default function ScheduledPage() {
                   <label className="block text-sm font-medium text-gray-600 mb-1">Category {schedType === "income" ? "(optional)" : ""}</label>
                   <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500">
                     <option value="">{schedType === "income" ? "No category (income)" : "None"}</option>
-                    {categories.filter((c) => c.type === schedType || c.type === "both").map((c) => <option key={c.id} value={c.id}>{c.name} ({c.type})</option>)}
+                    {categories.filter((c) => schedType === "income" ? c.type === "income" : c.type === "expense").map((c) => <option key={c.id} value={c.id}>{c.name} ({c.type})</option>)}
                   </select>
                 </div>
               )}

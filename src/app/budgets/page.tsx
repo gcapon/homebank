@@ -141,58 +141,14 @@ export default function BudgetsPage() {
     return b !== undefined ? Number(b.amount) : null;
   }
 
-  function getCardActualPaid(cardId: string, monthKey: string): { total: number; excluded: { desc: string; amount: number; reason: string }[] } {
-    const thisCardTxs = transactions.filter((t) => t.account_id === cardId && t.transfer_id);
-    const transferGroups: Record<string, Transaction[]> = {};
-    for (const tx of thisCardTxs) {
-      if (!transferGroups[tx.transfer_id!]) transferGroups[tx.transfer_id!] = [];
-      transferGroups[tx.transfer_id!].push(tx);
-    }
-    let total = 0;
-    const excluded: { desc: string; amount: number; reason: string }[] = [];
-    for (const tx of thisCardTxs) {
-      if (!tx.transfer_id) continue;
-      const group = transferGroups[tx.transfer_id!];
-      const counterpartyTx = group.find((t) => t.account_id !== cardId);
-      if (counterpartyTx) {
-        const counterpartyAcct = accounts.find((a) => a.id === counterpartyTx.account_id);
-        // If counterparty account not found OR is credit type → skip (treat as card-to-card transfer)
-        if (!counterpartyAcct || counterpartyAcct.type === "credit") {
-          excluded.push({ desc: tx.description, amount: Math.abs(Number(tx.amount)), reason: "card→card transfer" });
-          continue;
-        }
-      }
-      if (tx.date.startsWith(monthKey)) {
-        const amt = Number(tx.amount);
-        total += amt < 0 ? Math.abs(amt) : 0;
-      }
-    }
-    return { total, excluded };
-  }
-
-  function cardActualForMonth(cardId: string, monthKey: string): number {
-    const thisCardTxs = transactions.filter((t) => t.account_id === cardId && t.transfer_id);
-    const transferGroups: Record<string, Transaction[]> = {};
-    for (const tx of thisCardTxs) {
-      if (!transferGroups[tx.transfer_id!]) transferGroups[tx.transfer_id!] = [];
-      transferGroups[tx.transfer_id!].push(tx);
-    }
-    let total = 0;
-    for (const tx of thisCardTxs) {
-      if (!tx.transfer_id) continue;
-      const group = transferGroups[tx.transfer_id!];
-      const counterpartyTx = group.find((t) => t.account_id !== cardId);
-      if (counterpartyTx) {
-        const counterpartyAcct = accounts.find((a) => a.id === counterpartyTx.account_id);
-        // If counterparty account not found OR is credit type → skip (treat as card-to-card transfer)
-        if (!counterpartyAcct || counterpartyAcct.type === "credit") continue;
-      }
-      if (tx.date.startsWith(monthKey)) {
-        const amt = Number(tx.amount);
-        total += amt !== 0 ? Math.abs(amt) : 0;
-      }
-    }
-    return total;
+  function getCardActualPaid(cardId: string, monthKey: string): number {
+    return transactions
+      .filter((t) => {
+        if (!t.transfer_id) return false;
+        if (t.account_id !== cardId) return false;
+        return t.date.startsWith(monthKey);
+      })
+      .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
   }
 
   function getBudget(categoryId: string, month: string): number | null {
@@ -262,9 +218,9 @@ export default function BudgetsPage() {
     setSelectedMonths([]);
   }
 
-  const allCategories = categories.filter((c) => c.type === "expense" || c.type === "income" || c.type === "both");
-  const incomeCategories = allCategories.filter((c) => c.type === "income" || c.type === "both");
-  const expenseCategories = allCategories.filter((c) => c.type === "expense" || c.type === "both");
+  const allCategories = categories.filter((c) => c.type === "expense" || c.type === "income");
+  const incomeCategories = allCategories.filter((c) => c.type === "income");
+  const expenseCategories = allCategories.filter((c) => c.type === "expense");
   const displayMonths = selectedMonths.length > 0 ? selectedMonths : [new Date().getMonth()];
 
   const years = [new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1];
@@ -532,7 +488,7 @@ export default function BudgetsPage() {
                       {displayMonths.map((m) => {
                         const monthKey = getMonthKey(m);
                         const budgeted = getCardBudget(card.id, monthKey);
-                        const actual = cardActualForMonth(card.id, monthKey);
+                        const actual = getCardActualPaid(card.id, monthKey);
                         const isEditing = editingCardCell?.accountId === card.id && editingCardCell?.month === monthKey;
                         return (
                           <td key={m} className="px-4 py-3 text-center">
@@ -607,7 +563,7 @@ export default function BudgetsPage() {
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
                       const totalBudgeted = creditCardAccounts.reduce((sum, card) => sum + (getCardBudget(card.id, monthKey) ?? 0), 0);
-                      const totalActual = creditCardAccounts.reduce((sum, card) => sum + getCardActualPaid(card.id, monthKey).total, 0);
+                      const totalActual = creditCardAccounts.reduce((sum, card) => sum + getCardActualPaid(card.id, monthKey), 0);
                       const hasAny = totalBudgeted > 0 || totalActual > 0;
                       return (
                         <td key={m} className="px-4 py-2 text-center">
@@ -638,31 +594,10 @@ export default function BudgetsPage() {
           const b = cardBudgets.find((c) => c.account_id === cardId && c.month === monthKey);
           return b ? Number(b.amount) : 0;
         }
-        function cardActualForMonth(cardId: string, monthKey: string): number {
-          const thisCardTxs = transactions.filter((t) => t.account_id === cardId && t.transfer_id);
-          const transferGroups: Record<string, Transaction[]> = {};
-          for (const tx of thisCardTxs) {
-            if (!transferGroups[tx.transfer_id!]) transferGroups[tx.transfer_id!] = [];
-            transferGroups[tx.transfer_id!].push(tx);
-          }
-          let total = 0;
-          for (const tx of thisCardTxs) {
-            if (!tx.transfer_id) continue;
-            const group = transferGroups[tx.transfer_id!];
-            const counterpartyTx = group.find((t) => t.account_id !== cardId);
-            if (counterpartyTx) {
-              const counterpartyAcct = accounts.find((a) => a.id === counterpartyTx.account_id);
-              // If counterparty account not found OR is credit type → skip (treat as card-to-card transfer)
-              if (!counterpartyAcct || counterpartyAcct.type === "credit") continue;
-            }
-            if (tx.date.startsWith(monthKey)) {
-              const amt = Number(tx.amount);
-              // Count ANY non-zero amount from non-credit counterparties as a payment
-              // Negative = outflow (payment), Positive = inflow (payment received)
-              total += amt !== 0 ? Math.abs(amt) : 0;
-            }
-          }
-          return total;
+        function cardActualForMonth(cardId: string, monthKey: string) {
+          return transactions
+            .filter((t) => { if (!t.transfer_id) return false; if (t.account_id !== cardId) return false; return t.date.startsWith(monthKey); })
+            .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
         }
 
         return (

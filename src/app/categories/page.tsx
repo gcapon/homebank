@@ -4,13 +4,13 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import type { Category, CategoryType } from "@/types";
+import type { Category } from "@/types";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<{ name: string; type: CategoryType; parent_id: string }>({ name: "", type: "expense", parent_id: "" });
+  const [formData, setFormData] = useState({ name: "", type: "expense" as "income" | "expense", parent_id: "" });
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
   useEffect(() => {
@@ -61,8 +61,8 @@ export default function CategoriesPage() {
     }
   }
 
-  const incomeCategories = categories.filter((c) => c.type === "income" || c.type === "both");
-  const expenseCategories = categories.filter((c) => c.type === "expense" || c.type === "both");
+  const incomeCategories = categories.filter((c) => c.type === "income");
+  const expenseCategories = categories.filter((c) => c.type === "expense");
 
   return (
     <div className="space-y-6">
@@ -104,12 +104,11 @@ export default function CategoriesPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                 <select
                   value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as CategoryType })}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value as "income" | "expense" })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="expense">Expense</option>
                   <option value="income">Income</option>
-                  <option value="both">Both</option>
                 </select>
               </div>
               <div>
