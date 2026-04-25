@@ -156,7 +156,8 @@ export default function BudgetsPage() {
       const counterpartyTx = group.find((t) => t.account_id !== cardId);
       if (counterpartyTx) {
         const counterpartyAcct = accounts.find((a) => a.id === counterpartyTx.account_id);
-        if (counterpartyAcct?.type === "credit") {
+        // If counterparty account not found OR is credit type → skip (treat as card-to-card transfer)
+        if (!counterpartyAcct || counterpartyAcct.type === "credit") {
           excluded.push({ desc: tx.description, amount: Math.abs(Number(tx.amount)), reason: "card→card transfer" });
           continue;
         }
@@ -183,7 +184,8 @@ export default function BudgetsPage() {
       const counterpartyTx = group.find((t) => t.account_id !== cardId);
       if (counterpartyTx) {
         const counterpartyAcct = accounts.find((a) => a.id === counterpartyTx.account_id);
-        if (counterpartyAcct?.type === "credit") continue;
+        // If counterparty account not found OR is credit type → skip (treat as card-to-card transfer)
+        if (!counterpartyAcct || counterpartyAcct.type === "credit") continue;
       }
       if (tx.date.startsWith(monthKey)) {
         const amt = Number(tx.amount);
@@ -650,7 +652,8 @@ export default function BudgetsPage() {
             const counterpartyTx = group.find((t) => t.account_id !== cardId);
             if (counterpartyTx) {
               const counterpartyAcct = accounts.find((a) => a.id === counterpartyTx.account_id);
-              if (counterpartyAcct?.type === "credit") continue;
+              // If counterparty account not found OR is credit type → skip (treat as card-to-card transfer)
+              if (!counterpartyAcct || counterpartyAcct.type === "credit") continue;
             }
             if (tx.date.startsWith(monthKey)) {
               const amt = Number(tx.amount);
