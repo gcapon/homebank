@@ -509,7 +509,7 @@ export default function BudgetsPage() {
                       {displayMonths.map((m) => {
                         const monthKey = getMonthKey(m);
                         const budgeted = getCardBudget(card.id, monthKey);
-                        const { total: actual } = getCardActualPaid(card.id, monthKey);
+                        const actual = cardActualForMonth(card.id, monthKey);
                         const isEditing = editingCardCell?.accountId === card.id && editingCardCell?.month === monthKey;
                         return (
                           <td key={m} className="px-4 py-3 text-center">
