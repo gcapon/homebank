@@ -162,8 +162,9 @@ export default function BudgetsPage() {
         }
       }
       if (tx.date.startsWith(monthKey)) {
-        // Only count NEGATIVE amounts (actual outflows from this card = payments)
-        // POSITIVE amounts = money received (not a payment to the card)
+        // Only count NEGATIVE amounts as actual payments (outflows from card = debt being paid)
+        // POSITIVE amounts = money received by the card (not a payment — skip)
+        // Counterparty credit card transfers (balance moves) are already excluded above
         const amt = Number(tx.amount);
         total += amt < 0 ? Math.abs(amt) : 0;
       }
@@ -632,7 +633,9 @@ export default function BudgetsPage() {
             }
             if (tx.date.startsWith(monthKey)) {
               const amt = Number(tx.amount);
-              total += amt < 0 ? Math.abs(amt) : 0;
+              // Count ANY non-zero amount from non-credit counterparties as a payment
+              // Negative = outflow (payment), Positive = inflow (payment received)
+              total += amt !== 0 ? Math.abs(amt) : 0;
             }
           }
           return total;
