@@ -688,7 +688,10 @@ export default function BudgetsPage() {
                   </tr>
                   {/* Net row */}
                   <tr className="bg-blue-50 border-t-2 border-blue-300">
-                    <td className="px-4 py-3 text-sm font-bold text-blue-900 sticky left-0 bg-blue-50 z-10 min-w-48">Net</td>
+                    <td className="px-4 py-3 text-sm font-bold text-blue-900 sticky left-0 bg-blue-50 z-10 min-w-48">
+                              Net
+                              <span className="block text-xs font-normal text-gray-500">Actual − Budget</span>
+                            </td>
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
                       const incomeBudgeted = incomeCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);

@@ -13,7 +13,7 @@ export default function MobileMenu({ session }: MobileMenuProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <>
+    <div className="relative">
       {/* Hamburger button — mobile only, right of logo */}
       <button
         className="md:hidden p-2 rounded hover:bg-blue-500 transition ml-auto"
@@ -27,7 +27,7 @@ export default function MobileMenu({ session }: MobileMenuProps) {
 
       {/* Mobile menu drawer */}
       {open && (
-        <div className="md:hidden absolute top-full left-0 right-0 bg-blue-600 shadow-lg z-50">
+        <div className="absolute top-full left-0 right-0 bg-blue-600 shadow-lg z-50">
           <nav className="flex flex-col p-4 gap-1">
             {session?.user?.name && (
               <span className="text-blue-200 text-sm mb-2 px-2">Hello, {session.user.name}</span>
@@ -46,6 +46,6 @@ export default function MobileMenu({ session }: MobileMenuProps) {
           </nav>
         </div>
       )}
-    </>
+    </div>
   );
 }
