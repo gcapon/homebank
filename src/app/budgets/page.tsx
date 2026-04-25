@@ -162,14 +162,35 @@ export default function BudgetsPage() {
         }
       }
       if (tx.date.startsWith(monthKey)) {
-        // Only count NEGATIVE amounts as actual payments (outflows from card = debt being paid)
-        // POSITIVE amounts = money received by the card (not a payment — skip)
-        // Counterparty credit card transfers (balance moves) are already excluded above
         const amt = Number(tx.amount);
         total += amt < 0 ? Math.abs(amt) : 0;
       }
     }
     return { total, excluded };
+  }
+
+  function cardActualForMonth(cardId: string, monthKey: string): number {
+    const thisCardTxs = transactions.filter((t) => t.account_id === cardId && t.transfer_id);
+    const transferGroups: Record<string, Transaction[]> = {};
+    for (const tx of thisCardTxs) {
+      if (!transferGroups[tx.transfer_id!]) transferGroups[tx.transfer_id!] = [];
+      transferGroups[tx.transfer_id!].push(tx);
+    }
+    let total = 0;
+    for (const tx of thisCardTxs) {
+      if (!tx.transfer_id) continue;
+      const group = transferGroups[tx.transfer_id!];
+      const counterpartyTx = group.find((t) => t.account_id !== cardId);
+      if (counterpartyTx) {
+        const counterpartyAcct = accounts.find((a) => a.id === counterpartyTx.account_id);
+        if (counterpartyAcct?.type === "credit") continue;
+      }
+      if (tx.date.startsWith(monthKey)) {
+        const amt = Number(tx.amount);
+        total += amt !== 0 ? Math.abs(amt) : 0;
+      }
+    }
+    return total;
   }
 
   function getBudget(categoryId: string, month: string): number | null {
