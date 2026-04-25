@@ -653,8 +653,8 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      {/* Table — always visible */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+      {/* Table — desktop only */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 hidden md:block">
         <div className="p-6">
           {displayTransactions.length > 0 ? (
             <div className="overflow-x-auto">
@@ -718,6 +718,69 @@ export default function TransactionsPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Cards — mobile only */}
+      <div className="md:hidden space-y-3">
+        {displayTransactions.length > 0 ? (
+          displayTransactions.map((tx) => (
+            <div
+              key={tx.id}
+              className={`bg-white rounded-xl shadow-sm border border-gray-100 p-4 ${tx.reconciled ? "bg-blue-50 border-blue-200" : ""}`}
+            >
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={tx.reconciled}
+                    onChange={() => handleReconcile(tx.id, !tx.reconciled)}
+                    className="w-4 h-4 rounded cursor-pointer accent-green-600 mt-0.5"
+                  />
+                  <div>
+                    <p className="font-medium text-gray-800 text-sm">
+                      {tx.description}
+                      {tx.transfer_id && (
+                        <span className="ml-2 text-xs text-blue-500 bg-blue-100 px-1.5 py-0.5 rounded">↔️</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">{tx.date}</p>
+                  </div>
+                </div>
+                <p className={`font-semibold text-sm shrink-0 ${Number(tx.amount) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  {Number(tx.amount) >= 0 ? "+" : ""}${Number(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mb-2">
+                {(tx as any).accounts?.name && (
+                  <span>🏦 {(tx as any).accounts?.name}</span>
+                )}
+                {(tx as any).categories?.name && (
+                  <span>🏷️ {(tx as any).categories?.name}</span>
+                )}
+                {tx.memo && <span className="italic">📝 {tx.memo}</span>}
+              </div>
+
+              {selectedAccountId && (
+                <p className="text-xs text-gray-400 mb-2">
+                  Balance: <span className={`font-medium ${(runningBalanceMap.get(tx.id) || 0) >= 0 ? "text-gray-700" : "text-red-600"}`}>
+                    ${(runningBalanceMap.get(tx.id) || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </span>
+                </p>
+              )}
+
+              <div className="flex gap-4 mt-2 pt-2 border-t border-gray-100">
+                <button onClick={() => startEdit(tx)} className="text-blue-500 hover:text-blue-700 text-xs font-medium">✏️ Edit</button>
+                <button onClick={() => handleDelete(tx.id)} className="text-gray-400 hover:text-red-500 text-xs">✕ Delete</button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center text-gray-400">
+            <p className="text-4xl mb-2">💸</p>
+            <p>No transactions yet.</p>
+          </div>
+        )}
       </div>
     </div>
   );
