@@ -16,6 +16,25 @@ export default function BudgetsPage() {
   const now = new Date();
   const currentMonth = now.getMonth();
   const [selectedMonths, setSelectedMonths] = useState<number[]>([currentMonth]);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  // Set responsive initial months on mount
+  useEffect(() => {
+    const checkWidth = () => setIsDesktop(window.innerWidth >= 768);
+    checkWidth();
+    // Set initial month selection based on screen size
+    if (window.innerWidth >= 768) {
+      // Desktop: last month, current month, next 4 months
+      const prev = currentMonth === 0 ? 11 : currentMonth - 1;
+      const next = [4, 5, 6, 7].map((offset) => (currentMonth + offset) % 12);
+      setSelectedMonths([prev, currentMonth, ...next]);
+    } else {
+      // Mobile: current month only
+      setSelectedMonths([currentMonth]);
+    }
+    window.addEventListener("resize", checkWidth);
+    return () => window.removeEventListener("resize", checkWidth);
+  }, []);
   const [editingCell, setEditingCell] = useState<{ categoryId: string; month: string } | null>(null);
   const [editingCardCell, setEditingCardCell] = useState<{ accountId: string; month: string } | null>(null);
   const [cellValue, setCellValue] = useState("");
