@@ -26,7 +26,7 @@ export default function BudgetsPage() {
     if (window.innerWidth >= 768) {
       // Desktop: last month, current month, next 4 months
       const prev = currentMonth === 0 ? 11 : currentMonth - 1;
-      const next = [4, 5, 6, 7].map((offset) => (currentMonth + offset) % 12);
+      const next = [1, 2, 3, 4].map((offset) => (currentMonth + offset) % 12);
       setSelectedMonths([prev, currentMonth, ...next]);
     } else {
       // Mobile: current month only
