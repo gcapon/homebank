@@ -265,14 +265,14 @@ export default function BudgetsPage() {
       {/* Budget Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full text-xs sm:text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700 sticky left-0 bg-gray-50 z-10 min-w-48">
+                <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700 sticky left-0 bg-gray-50 z-10 min-w-32 sm:min-w-48">
                   Category
                 </th>
                 {displayMonths.map((m) => (
-                  <th key={m} className="px-4 py-3 text-sm font-semibold text-gray-700 text-center min-w-28">
+                  <th key={m} className="px-4 py-3 text-sm font-semibold text-gray-700 text-center min-w-20 sm:min-w-28">
                     <div className="flex flex-col items-center gap-1">
                       <span>{MONTHS[m]}</span>
                       {displayMonths.length > 1 && (
@@ -302,13 +302,13 @@ export default function BudgetsPage() {
                   {incomeCategories.length > 0 && (
                     <>
                       <tr className="bg-green-50 border-b-2 border-green-200">
-                        <td className="px-4 py-2 font-bold text-green-700 sticky left-0 bg-green-50 z-10" colSpan={1}>📈 INCOME</td>
+                        <td className="px-2 sm:px-4 py-2 font-bold text-green-700 sticky left-0 bg-green-50 z-10" colSpan={1}>📈 INCOME</td>
                         {displayMonths.map((m) => {
                           const monthKey = getMonthKey(m);
                           const totalBudget = incomeCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);
                           const totalSpent = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
                           return (
-                            <td key={m} className="px-4 py-2 text-center">
+                            <td key={m} className="px-2 sm:px-4 py-2 text-center">
                               <div className="text-xs text-gray-500 mb-1">Budget / Actual</div>
                               <div className="font-bold text-green-800">${totalBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
                               <div className="text-sm text-green-600">${totalSpent.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
@@ -318,7 +318,7 @@ export default function BudgetsPage() {
                       </tr>
                       {incomeCategories.map((cat) => (
                         <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium text-gray-800 sticky left-0 bg-white z-10">{cat.name}</td>
+                          <td className="px-2 sm:px-4 py-3 font-medium text-gray-800 sticky left-0 bg-white z-10">{cat.name}</td>
                           {displayMonths.map((m) => {
                             const monthKey = getMonthKey(m);
                             const budget = getBudget(cat.id, monthKey);
@@ -326,17 +326,17 @@ export default function BudgetsPage() {
                             const isEditing = editingCell?.categoryId === cat.id && editingCell?.month === monthKey;
                             const hasData = budget !== null || spent > 0;
                             return (
-                              <td key={m} className="px-4 py-3 text-center">
+                              <td key={m} className="px-2 sm:px-4 py-3 text-center">
                                 {isEditing ? (
                                   <div className="flex items-center justify-center gap-2">
                                     <input type="number" step="0.01" value={cellValue} onChange={(e) => setCellValue(e.target.value)}
                                       onKeyDown={(e) => { if (e.key === "Enter") saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0); if (e.key === "Escape") cancelEdit(); }}
-                                      autoFocus className="w-24 px-2 py-1 border border-blue-400 rounded text-center text-sm" />
+                                      autoFocus className="w-20 sm:w-24 px-1 sm:px-2 py-1 border border-blue-400 rounded text-center text-sm" />
                                     <button onClick={() => saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0)} className="text-green-600 hover:text-green-700 text-xs">✓</button>
                                     <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
                                   </div>
                                 ) : (
-                                  <div className="flex flex-col gap-0.5 min-h-12">
+                                  <div className="flex flex-col gap-0.5 min-h-10 sm:min-h-12">
                                     <div onClick={() => { console.log("[DEBUG] income cell click", cat.id, monthKey, { budget }); startEdit(cat.id, monthKey, budget ?? 0); }} className="cursor-pointer hover:bg-blue-50 rounded py-0.5">
                                       {budget !== null ? <span className="font-semibold text-gray-700">${(budget || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span> : <span className="text-gray-300">+</span>}
                                     </div>
@@ -357,13 +357,13 @@ export default function BudgetsPage() {
                   {expenseCategories.length > 0 && (
                     <>
                       <tr className="bg-red-50 border-b-2 border-red-200">
-                        <td className="px-4 py-2 font-bold text-red-700 sticky left-0 bg-red-50 z-10" colSpan={1}>📉 EXPENSES</td>
+                        <td className="px-2 sm:px-4 py-2 font-bold text-red-700 sticky left-0 bg-red-50 z-10" colSpan={1}>📉 EXPENSES</td>
                         {displayMonths.map((m) => {
                           const monthKey = getMonthKey(m);
                           const totalBudget = expenseCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);
                           const totalSpent = expenseCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "expense"), 0);
                           return (
-                            <td key={m} className="px-4 py-2 text-center">
+                            <td key={m} className="px-2 sm:px-4 py-2 text-center">
                               <div className="text-xs text-gray-500 mb-1">Budget / Actual</div>
                               <div className="font-bold text-red-800">${totalBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
                               <div className="text-sm text-red-600">${totalSpent.toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
@@ -373,7 +373,7 @@ export default function BudgetsPage() {
                       </tr>
                       {expenseCategories.map((cat) => (
                         <tr key={cat.id} className="border-b border-gray-50 hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium text-gray-800 sticky left-0 bg-white z-10">{cat.name}</td>
+                          <td className="px-2 sm:px-4 py-3 font-medium text-gray-800 sticky left-0 bg-white z-10">{cat.name}</td>
                           {displayMonths.map((m) => {
                             const monthKey = getMonthKey(m);
                             const budget = getBudget(cat.id, monthKey);
@@ -381,17 +381,17 @@ export default function BudgetsPage() {
                             const isEditing = editingCell?.categoryId === cat.id && editingCell?.month === monthKey;
                             const hasData = budget !== null || spent > 0;
                             return (
-                              <td key={m} className="px-4 py-3 text-center">
+                              <td key={m} className="px-2 sm:px-4 py-3 text-center">
                                 {isEditing ? (
                                   <div className="flex items-center justify-center gap-2">
                                     <input type="number" step="0.01" value={cellValue} onChange={(e) => setCellValue(e.target.value)}
                                       onKeyDown={(e) => { if (e.key === "Enter") saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0); if (e.key === "Escape") cancelEdit(); }}
-                                      autoFocus className="w-24 px-2 py-1 border border-blue-400 rounded text-center text-sm" />
+                                      autoFocus className="w-20 sm:w-24 px-1 sm:px-2 py-1 border border-blue-400 rounded text-center text-sm" />
                                     <button onClick={() => saveBudget(cat.id, monthKey, parseFloat(cellValue) || 0)} className="text-green-600 hover:text-green-700 text-xs">✓</button>
                                     <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
                                   </div>
                                 ) : (
-                                  <div className="flex flex-col gap-0.5 min-h-12">
+                                  <div className="flex flex-col gap-0.5 min-h-10 sm:min-h-12">
                                     <div onClick={() => { console.log("[DEBUG] expense cell click", cat.id, monthKey, { budget }); startEdit(cat.id, monthKey, budget ?? 0); }} className="cursor-pointer hover:bg-blue-50 rounded py-0.5">
                                       {budget !== null ? <span className="font-semibold text-gray-700">${(budget || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span> : <span className="text-gray-300">+</span>}
                                     </div>
@@ -411,10 +411,10 @@ export default function BudgetsPage() {
                   )}
                   {/* Net section header */}
                   <tr className="bg-blue-50 border-t-2 border-blue-300">
-                    <td className="px-4 py-2 font-bold text-blue-800 sticky left-0 bg-blue-50 z-10" colSpan={displayMonths.length + 1}>📊 NET (INCOME − EXPENSES)</td>
+                    <td className="px-2 sm:px-4 py-2 font-bold text-blue-800 sticky left-0 bg-blue-50 z-10" colSpan={displayMonths.length + 1}>📊 NET (INCOME − EXPENSES)</td>
                   </tr>
                   <tr className="bg-blue-50">
-                    <td className="px-4 py-3 sticky left-0 bg-blue-50 z-10"></td>
+                    <td className="px-2 sm:px-4 py-3 sticky left-0 bg-blue-50 z-10"></td>
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
                       const totalBudgetIncome = incomeCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);
@@ -425,7 +425,7 @@ export default function BudgetsPage() {
                       const netActual = totalSpentIncome - totalSpentExpenses;
                       const netColor = netActual >= 0 ? "text-green-600" : "text-red-600";
                       return (
-                        <td key={m} className="px-4 py-3 text-center">
+                        <td key={m} className="px-2 sm:px-4 py-3 text-center">
                           <div className="flex flex-col gap-0.5">
                             <div className="text-xs text-gray-500">Budgeted</div>
                             <span className="font-semibold text-gray-700">
@@ -463,14 +463,14 @@ export default function BudgetsPage() {
             <h3 className="font-bold text-purple-800 mb-1">💳 Credit Card Payments</h3>
             <p className="text-xs text-purple-500 mb-4">Monthly payment plan per card — click to edit budgeted amount</p>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-xs sm:text-sm">
                 <thead>
                   <tr className="bg-purple-50 border-b border-purple-200">
-                    <th className="px-4 py-3 text-sm font-semibold text-purple-700 sticky left-0 bg-purple-50 z-10 min-w-48">
+                    <th className="px-4 py-3 text-sm font-semibold text-purple-700 sticky left-0 bg-purple-50 z-10 min-w-32 sm:min-w-48">
                       Card
                     </th>
                     {displayMonths.map((m) => (
-                      <th key={m} className="px-4 py-3 text-sm font-semibold text-purple-700 text-center min-w-28">
+                      <th key={m} className="px-4 py-3 text-sm font-semibold text-purple-700 text-center min-w-20 sm:min-w-28">
                         <span>{MONTHS[m]}</span>
                       </th>
                     ))}
@@ -479,14 +479,14 @@ export default function BudgetsPage() {
                 <tbody>
                   {creditCardAccounts.map((card) => (
                     <tr key={card.id} className="border-b border-purple-100 hover:bg-purple-50">
-                      <td className="px-4 py-3 font-medium text-purple-800 sticky left-0 bg-purple-50 z-10">{card.name}</td>
+                      <td className="px-2 sm:px-4 py-3 font-medium text-purple-800 sticky left-0 bg-purple-50 z-10">{card.name}</td>
                       {displayMonths.map((m) => {
                         const monthKey = getMonthKey(m);
                         const budgeted = getCardBudget(card.id, monthKey);
                         const actual = getCardActualPaid(card.id, monthKey);
                         const isEditing = editingCardCell?.accountId === card.id && editingCardCell?.month === monthKey;
                         return (
-                          <td key={m} className="px-4 py-3 text-center">
+                          <td key={m} className="px-2 sm:px-4 py-3 text-center">
                             {isEditing ? (
                               <div className="flex items-center justify-center gap-2">
                                 <input
@@ -499,7 +499,7 @@ export default function BudgetsPage() {
                                     if (e.key === "Escape") { setEditingCardCell(null); setCellValue(""); }
                                   }}
                                   autoFocus
-                                  className="w-24 px-2 py-1 border border-purple-400 rounded text-center text-sm"
+                                  className="w-20 sm:w-24 px-1 sm:px-2 py-1 border border-purple-400 rounded text-center text-sm"
                                 />
                                 <button onClick={() => saveCardBudget(card.id, monthKey)} className="text-purple-600 hover:text-purple-700 text-xs">✓</button>
                                 <button onClick={() => { setEditingCardCell(null); setCellValue(""); }} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
@@ -554,14 +554,14 @@ export default function BudgetsPage() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-purple-100 border-t-2 border-purple-300">
-                    <td className="px-4 py-2 text-sm font-bold text-purple-900 sticky left-0 bg-purple-50 z-10">Total</td>
+                    <td className="px-2 sm:px-4 py-2 text-sm font-bold text-purple-900 sticky left-0 bg-purple-50 z-10">Total</td>
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
                       const totalBudgeted = creditCardAccounts.reduce((sum, card) => sum + (getCardBudget(card.id, monthKey) ?? 0), 0);
                       const totalActual = creditCardAccounts.reduce((sum, card) => sum + getCardActualPaid(card.id, monthKey), 0);
                       const hasAny = totalBudgeted > 0 || totalActual > 0;
                       return (
-                        <td key={m} className="px-4 py-2 text-center">
+                        <td key={m} className="px-2 sm:px-4 py-2 text-center">
                           {hasAny ? (
                             <div className="flex flex-col gap-0.5">
                               <span className="text-xs text-gray-500">Budget / Actual</span>
@@ -600,12 +600,12 @@ export default function BudgetsPage() {
             <h3 className="font-bold text-gray-800 mb-1">💰 Cash Flow</h3>
             <p className="text-xs text-gray-500 mb-4">Income − Expenses − Credit Card Payments</p>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-xs sm:text-sm">
                 <thead>
                   <tr className="bg-gray-100 border-b border-gray-300">
-                    <th className="px-4 py-3 text-sm font-semibold text-gray-700 sticky left-0 bg-gray-100 z-10 min-w-48"></th>
+                    <th className="px-4 py-3 text-sm font-semibold text-gray-700 sticky left-0 bg-gray-100 z-10 min-w-32 sm:min-w-48"></th>
                     {displayMonths.map((m) => (
-                      <th key={m} className="px-4 py-3 text-sm font-semibold text-gray-700 text-center min-w-28">
+                      <th key={m} className="px-4 py-3 text-sm font-semibold text-gray-700 text-center min-w-20 sm:min-w-28">
                         <span>{MONTHS[m]}</span>
                       </th>
                     ))}
@@ -614,14 +614,14 @@ export default function BudgetsPage() {
                 <tbody>
                   {/* Income row */}
                   <tr className="border-b border-gray-200">
-                    <td className="px-4 py-3 text-sm font-medium text-green-700 sticky left-0 bg-gray-100 z-10 min-w-48">Income</td>
+                    <td className="px-2 sm:px-4 py-3 text-sm font-medium text-green-700 sticky left-0 bg-gray-100 z-10 min-w-32 sm:min-w-48">Income</td>
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
                       const incomeBudgeted = incomeCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);
                       const incomeActual = incomeCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "income"), 0);
                       const hasAny = incomeBudgeted > 0 || incomeActual > 0;
                       return (
-                        <td key={m} className="px-4 py-3 text-center">
+                        <td key={m} className="px-2 sm:px-4 py-3 text-center">
                           {hasAny ? (
                             <div className="flex flex-col gap-0.5">
                               <div className="text-xs text-gray-400">Budget / Actual</div>
@@ -637,14 +637,14 @@ export default function BudgetsPage() {
                   </tr>
                   {/* Expenses row */}
                   <tr className="border-b border-gray-200">
-                    <td className="px-4 py-3 text-sm font-medium text-red-700 sticky left-0 bg-gray-100 z-10 min-w-48">Expenses</td>
+                    <td className="px-2 sm:px-4 py-3 text-sm font-medium text-red-700 sticky left-0 bg-gray-100 z-10 min-w-32 sm:min-w-48">Expenses</td>
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
                       const expenseBudgeted = expenseCategories.reduce((sum, cat) => sum + (getBudget(cat.id, monthKey) ?? 0), 0);
                       const expenseActual = expenseCategories.reduce((sum, cat) => sum + getSpent(cat.id, monthKey, "expense"), 0);
                       const hasAny = expenseBudgeted > 0 || expenseActual > 0;
                       return (
-                        <td key={m} className="px-4 py-3 text-center">
+                        <td key={m} className="px-2 sm:px-4 py-3 text-center">
                           {hasAny ? (
                             <div className="flex flex-col gap-0.5">
                               <div className="text-xs text-gray-400">Budget / Actual</div>
@@ -660,14 +660,14 @@ export default function BudgetsPage() {
                   </tr>
                   {/* Credit Card Payments row */}
                   <tr className="border-b border-gray-200">
-                    <td className="px-4 py-3 text-sm font-medium text-purple-700 sticky left-0 bg-gray-100 z-10 min-w-48">CC Payments</td>
+                    <td className="px-2 sm:px-4 py-3 text-sm font-medium text-purple-700 sticky left-0 bg-gray-100 z-10 min-w-32 sm:min-w-48">CC Payments</td>
                     {displayMonths.map((m) => {
                       const monthKey = getMonthKey(m);
                       const cardBudgeted = ccAccounts.reduce((sum, card) => sum + cardBudgetedForMonth(card.id, monthKey), 0);
                       const cardActual = ccAccounts.reduce((sum, card) => sum + cardActualForMonth(card.id, monthKey), 0);
                       const hasAny = cardBudgeted > 0 || cardActual > 0;
                       return (
-                        <td key={m} className="px-4 py-3 text-center">
+                        <td key={m} className="px-2 sm:px-4 py-3 text-center">
                           {hasAny ? (
                             <div className="flex flex-col gap-0.5">
                               <div className="text-xs text-gray-400">Budget / Actual</div>
@@ -683,7 +683,7 @@ export default function BudgetsPage() {
                   </tr>
                   {/* Net row */}
                   <tr className="bg-blue-50 border-t-2 border-blue-300">
-                    <td className="px-4 py-3 text-sm font-bold text-blue-900 sticky left-0 bg-blue-50 z-10 min-w-48">
+                    <td className="px-4 py-3 text-sm font-bold text-blue-900 sticky left-0 bg-blue-50 z-10 min-w-32 sm:min-w-48">
                               Net
                               <span className="block text-xs font-normal text-gray-500">Actual − Budget</span>
                             </td>
@@ -698,7 +698,7 @@ export default function BudgetsPage() {
                       const cardActual = ccAccounts.reduce((sum, card) => sum + cardActualForMonth(card.id, monthKey), 0);
                       const netActual = incomeActual - expenseActual - cardActual;
                       return (
-                        <td key={m} className="px-4 py-3 text-center">
+                        <td key={m} className="px-2 sm:px-4 py-3 text-center">
                           <div className="flex flex-col gap-0.5">
                             <div className="text-xs text-gray-400">Budget / Actual</div>
                             <span className={`font-bold ${netBudgeted >= 0 ? "text-green-600" : "text-red-600"}`}>
