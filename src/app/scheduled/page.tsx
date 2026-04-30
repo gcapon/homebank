@@ -158,7 +158,7 @@ export default function ScheduledPage() {
       body: JSON.stringify({
         action: "post",
         id: postModalItem.id,
-        occurrence_date: postModalOccurrenceDate || undefined,
+        occurrence_date: postModalOccurrenceDate || postModalItem.next_date,
         // Override fields for this occurrence only
         description: postForm.description,
         amount: postForm.amount,
