@@ -2,8 +2,8 @@ name: Keep Supabase Alive
 
 on:
   schedule:
-    # Run every 5 days to stay well within the 7-day inactivity window
-    - cron: "0 0 */5 * *"
+    # Run daily so Supabase free-tier inactivity checks have plenty of margin.
+    - cron: "37 10 * * *"
   workflow_dispatch:  # Allow manual trigger from GitHub Actions tab
 
 jobs:
@@ -11,8 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: https://gosgrazldgiolmgnpoue.supabase.co
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          curl -s -o /dev/null -w "%{http_code}" \
-            "https://gosgrazldgiolmgnpoue.supabase.co/rest/v1/accounts?select=id&limit=1" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+          test -n "$SUPABASE_ANON_KEY"
+
+          curl --fail-with-body --show-error --silent --retry 3 --retry-delay 10 \
+            --output /tmp/supabase-keep-alive.json \
+            "$SUPABASE_URL/rest/v1/accounts?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY"
+
+          test -s /tmp/supabase-keep-alive.json
